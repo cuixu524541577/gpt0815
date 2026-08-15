@@ -218,12 +218,20 @@ function load() {
 
 // ------------------------------------------------------------
 // 弹窗
+// 注意：modal-backdrop 默认 opacity:0 + pointer-events:none，
+// 必须加 .show 才可见可交互（与 upi.js / credentials.js 一致）。
 // ------------------------------------------------------------
 function openModal(id) {
-  $(id).classList.remove('hidden');
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove('hidden');
+  requestAnimationFrame(() => el.classList.add('show'));
 }
 function closeModal(id) {
-  $(id).classList.add('hidden');
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove('show');
+  el.classList.add('hidden');
 }
 
 async function saveCard() {

@@ -958,10 +958,12 @@ def _do_phone_verification(session: BrowserSession) -> None:
 # 步骤 5：选 workspace → 拿 callback code
 # ============================================================
 
-def _get_workspace_id(session: BrowserSession) -> str:
+def _get_workspace_id(session: BrowserSession) -> str | None:
     """
     从 oai-client-auth-session cookie 解出 workspaces[0].id。
     cookie 形如 base64payload.sig.sig，取第一段 base64 解码后的 JSON。
+
+    新注册账号还没有任何 workspace 时返回 None（由调用方走无选择分支）。
     """
     raw = None
     try:
@@ -984,7 +986,8 @@ def _get_workspace_id(session: BrowserSession) -> str:
     payload = _decode_jwt_segment(raw.split(".")[0])
     workspaces = payload.get("workspaces") or []
     if not workspaces:
-        raise RuntimeError(f"[Codex] cookie 里无 workspaces 字段: keys={list(payload.keys())}")
+        logger.info("[Codex] 账号尚无 workspace（新账号），跳过 workspace 选择: keys=%s", list(payload.keys()))
+        return None
     wid = workspaces[0].get("id")
     if not wid:
         raise RuntimeError(f"[Codex] workspaces[0] 无 id: {workspaces[0]}")
@@ -992,12 +995,25 @@ def _get_workspace_id(session: BrowserSession) -> str:
     return wid
 
 
-def _select_workspace_and_get_callback(session: BrowserSession, state: str) -> str:
+def _select_workspace_and_get_callback(
+    session: BrowserSession, state: str, auth_url: str | None = None,
+) -> str:
     """
-    POST workspace/select，然后跟随后续重定向/响应里的 URL 直到命中 localhost:1455 callback。
-    返回完整 callback URL（含 code）。
+    已有 workspace 的账号：POST workspace/select，然后跟随后续重定向/响应里的
+    URL 直到命中 localhost:1455 callback；返回完整 callback URL（含 code）。
+
+    新账号尚无 workspace 时：直接重放授权链接（会话已通过邮箱 OTP 认证），
+    由服务端决定落点并跟到 callback，workspace 由 Codex 客户端后续自建。
     """
     wid = _get_workspace_id(session)
+    if not wid:
+        if not auth_url:
+            raise RuntimeError(
+                "[Codex] 账号尚无 workspace，且没有可重放的授权地址，无法继续"
+            )
+        logger.info("[Codex] 无 workspace：直接重放授权链接获取 callback")
+        return _follow_until_callback(session, auth_url, state)
+
     resp = _post_json(
         session,
         "https://auth.openai.com/api/accounts/workspace/select",
@@ -1435,8 +1451,11 @@ def run_codex_oauth(
             _do_phone_verification(session)
         human_delay("post_auth")
 
-        # 6. 选 workspace → 拿 callback code
-        callback_url = _select_workspace_and_get_callback(session, state)
+        # 6. 选 workspace → 拿 callback code（新账号无 workspace 时重放授权链接）
+        replay_url = auth_url
+        if not replay_url and auth_source == "local":
+            replay_url = _build_authorize_url(state, code_challenge, prompt="login")
+        callback_url = _select_workspace_and_get_callback(session, state, auth_url=replay_url)
         code = _extract_code(callback_url, state)
         logger.info(f"[Codex] 已拿到 authorization code：{code[:24]}...")
 

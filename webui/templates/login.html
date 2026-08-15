@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · GPT 注册控制台</title>
+  <script>
+    window.GFR_I18N_BOOTSTRAP = {{ i18n_bootstrap | safe }};
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css?v=20260717-password-login">
+</head>
+<body class="login-page" data-credentials-configured="{{ 'true' if credentials_configured else 'false' }}">
+  <div class="locale-switch locale-switch-login" role="group" aria-label="切换界面语言" data-i18n-aria-label="language.switch_aria">
+    <button type="button" data-locale-option="zh_cn" aria-pressed="true">中文</button>
+    <button type="button" data-locale-option="en" aria-pressed="false">EN</button>
+  </div>
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark">GFR</div>
+        <div class="login-title">
+          <h1 data-i18n="app.title">GPT 注册控制台</h1>
+          <p data-i18n="auth.login.subtitle">选择登录方式</p>
+        </div>
+      </div>
+
+      
+
+      <div class="login-method-tabs" role="tablist" aria-label="登录方式" data-i18n-aria-label="auth.login.methods">
+        <button
+          type="button"
+          class="login-method-tab active"
+          id="passwordLoginTab"
+          role="tab"
+          aria-selected="true"
+          aria-controls="passwordLoginPanel"
+          tabindex="0"
+          data-login-method="password"
+          data-i18n="auth.method.password"
+        >账号密码</button>
+        <button
+          type="button"
+          class="login-method-tab"
+          id="telegramLoginTab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="telegramLoginPanel"
+          tabindex="-1"
+          data-login-method="telegram"
+          data-i18n="auth.method.telegram"
+        >Telegram</button>
+      </div>
+
+      <section
+        class="login-method-panel"
+        id="passwordLoginPanel"
+        role="tabpanel"
+        aria-labelledby="passwordLoginTab"
+        
+      >
+        
+        <div class="login-alert" id="passwordLoginStatus" role="status" hidden></div>
+        <form id="passwordLoginForm" class="login-password-form" novalidate>
+          <label class="login-field" for="loginUsername">
+            <span data-i18n="auth.password.username">用户名</span>
+            <input
+              class="login-input"
+              id="loginUsername"
+              name="username"
+              type="text"
+              autocomplete="username"
+              minlength="3"
+              maxlength="32"
+              required
+              
+            >
+          </label>
+          <label class="login-field" for="loginPassword">
+            <span data-i18n="auth.password.password">密码</span>
+            <span class="password-input-shell">
+              <input
+                class="login-input"
+                id="loginPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                minlength="8"
+                maxlength="128"
+                required
+                
+              >
+              <button
+                type="button"
+                class="password-visibility"
+                id="loginPasswordVisibility"
+                aria-label="显示密码"
+                title="显示密码"
+                data-i18n-aria-label="auth.password.show"
+                data-i18n-title="auth.password.show"
+                
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                  <circle cx="12" cy="12" r="2.7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                </svg>
+              </button>
+            </span>
+          </label>
+          <button
+            type="submit"
+            class="btn primary login-button"
+            id="passwordLoginBtn"
+            data-i18n="auth.password.sign_in"
+            
+          >登录</button>
+        </form>
+      </section>
+
+      <section
+        class="login-method-panel"
+        id="telegramLoginPanel"
+        role="tabpanel"
+        aria-labelledby="telegramLoginTab"
+        hidden
+      >
+        
+        <div class="login-alert">
+          
+          已锁定 Telegram 用户：5388265006
+          
+          
+        </div>
+        
+        <div class="login-alert" id="loginStatus" role="status" hidden></div>
+        <div class="login-actions">
+          <button type="button" class="btn primary login-button" id="tgLoginBtn">
+            <svg class="tg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M21.7 3.3 2.9 10.6c-1.3.5-1.3 1.2-.2 1.6l4.8 1.5 1.8 5.6c.2.7.4 1 .8 1 .4 0 .6-.2.9-.5l2.6-2.5 5 3.7c.9.5 1.5.2 1.7-.9l3.1-14.7c.3-1.3-.5-1.8-1.7-1.4ZM8.2 13.3l10.6-6.7c.5-.3.9-.1.6.2l-8.6 7.8-.3 3.4-2.3-4.7Z" fill="currentColor"/>
+            </svg>
+            <span data-i18n="auth.telegram.sign_in">使用 Telegram 登录</span>
+          </button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="/static/js/i18n.js?v=20260716-i18n-foundation" defer></script>
+  <script src="/static/js/pages/login.js?v=20260717-password-login-fix" defer></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+[Unit]
+Description=GPT Register Console
+After=network.target
+
+[Service]
+Type=simple
+User=gptreg
+Group=gptreg
+WorkingDirectory=/opt/gpt-register-console
+Environment=PYTHONUNBUFFERED=1
+# 仅绑定本地回环；对外访问必须走 nginx 反代（见 deploy/nginx.conf）
+ExecStart=/usr/bin/python3 /opt/gpt-register-console/web.py --host 127.0.0.1 --port 5000 --no-browser
+Restart=on-failure
+RestartSec=3
+
+# ---- 安全加固 ----
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/gpt-register-console
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPT 注册控制台</title>
+  <script>
+    window.GFR_I18N_BOOTSTRAP = {{ i18n_bootstrap | safe }};
+  </script>
+  <script>
+    try {
+      if (localStorage.getItem('gfr.sidebarCollapsed') === '1') {
+        document.documentElement.classList.add('sidebar-collapsed-preload');
+      }
+    } catch (_) {}
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css?v=20260807-account-filter-grid">
+  <link rel="stylesheet" href="/static/css/upi.css?v=20260728-upi-logs-table-v4">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand">
+        <div class="brand-mark">GFR</div>
+        <div class="brand-copy">
+          <h1>GPT 注册控制台</h1>
+          <button type="button" class="version-chip" id="appVersionChip" title="查看版本和更新">
+            <span class="version-dot"></span>
+            <span id="appVersionText">v-</span>
+          </button>
+        </div>
+      </div>
+      <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-expanded="true" title="收起左侧菜单">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M9 3v18m7-12-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <nav class="side-nav" aria-label="主导航">
+      <button data-tab="register" class="active">
+        <span class="nav-icon">R</span>
+        <span class="nav-copy"><strong>注册任务</strong><small>批量执行 / 实时日志</small></span>
+      </button>
+      <button data-tab="accounts">
+        <span class="nav-icon">A</span>
+        <span class="nav-copy"><strong>账号资产</strong><small>筛选 / 导入导出 / 建任务</small></span>
+      </button>
+      <button data-tab="automation-tasks">
+        <span class="nav-icon">T</span>
+        <span class="nav-copy"><strong>自动化任务</strong><small>排队 / 进度 / 历史</small></span>
+      </button>
+      <button data-tab="codex">
+        <span class="nav-icon">C</span>
+        <span class="nav-copy"><strong>Codex 授权</strong><small>CPA 凭证导出</small></span>
+      </button>
+      <button data-tab="outlook">
+        <span class="nav-icon">M</span>
+        <span class="nav-copy"><strong>邮箱池</strong><small>素材导入 / 状态维护</small></span>
+      </button>
+      <button data-tab="upi">
+        <span class="nav-icon">U</span>
+        <span class="nav-copy"><strong data-i18n="nav.upi.title">支付链接提取</strong><small data-i18n="nav.upi.subtitle">任务 / 扫码商 / 结算</small></span>
+      </button>
+      <button data-tab="cardpool">
+        <span class="nav-icon">P</span>
+        <span class="nav-copy"><strong>卡池支付</strong><small>虚拟卡 / PayPal / 自动付</small></span>
+      </button>
+      <button data-tab="config">
+        <span class="nav-icon">S</span>
+        <span class="nav-copy"><strong>运行配置</strong><small>分类参数维护</small></span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <section
+        class="sidebar-system-metrics"
+        id="sidebarSystemMetrics"
+        aria-label="服务器资源"
+        data-i18n-aria-label="sidebar.system_metrics"
+      >
+        <div class="sidebar-metrics-head">
+          <span data-i18n="sidebar.system_metrics">服务器资源</span>
+          <span data-i18n="sidebar.realtime">实时</span>
+        </div>
+        <div class="sidebar-metric-row" id="sidebarCpuMetric">
+          <span class="metric-label-full" data-i18n="sidebar.cpu">CPU</span>
+          <span class="metric-label-compact" aria-hidden="true">C</span>
+          <span class="sidebar-metric-track" role="progressbar" aria-label="CPU" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-aria-label="sidebar.cpu">
+            <span class="sidebar-metric-fill cpu" id="sidebarCpuBar"></span>
+          </span>
+          <strong id="sidebarCpuValue">--</strong>
+        </div>
+        <div class="sidebar-metric-row" id="sidebarMemoryMetric">
+          <span class="metric-label-full" data-i18n="sidebar.memory">内存</span>
+          <span class="metric-label-compact" aria-hidden="true">M</span>
+          <span class="sidebar-metric-track" role="progressbar" aria-label="内存" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-aria-label="sidebar.memory">
+            <span class="sidebar-metric-fill memory" id="sidebarMemoryBar"></span>
+          </span>
+          <strong id="sidebarMemoryValue">--</strong>
+        </div>
+        <div class="sidebar-metric-row" id="sidebarDiskMetric">
+          <span class="metric-label-full" data-i18n="sidebar.disk">磁盘</span>
+          <span class="metric-label-compact" aria-hidden="true">D</span>
+          <span class="sidebar-metric-track" role="progressbar" aria-label="磁盘" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-aria-label="sidebar.disk">
+            <span class="sidebar-metric-fill disk" id="sidebarDiskBar"></span>
+          </span>
+          <strong id="sidebarDiskValue">--</strong>
+        </div>
+      </section>
+      <button type="button" class="guide-entry-btn" id="guideEntryBtn" title="打开新手指引">
+        <span class="guide-entry-icon">?</span>
+        <span class="guide-entry-copy"><strong>新手指引</strong><small>快速认识控制台</small></span>
+      </button>
+      <details class="sidebar-account" id="userMenu">
+        <summary
+          class="sidebar-account-trigger"
+          title="账号菜单"
+          aria-label="账号菜单"
+          role="button"
+          aria-haspopup="true"
+          aria-controls="userAccountMenu"
+          data-i18n-title="sidebar.account_menu"
+          data-i18n-aria-label="sidebar.account_menu"
+        >
+          <span class="user-avatar" id="userAvatar">TG</span>
+          <span class="user-copy">
+            <span data-user-kind data-i18n="auth.session.telegram">Telegram 账号</span>
+            <strong id="userName" data-user-name>已登录</strong>
+          </span>
+          <span class="sidebar-account-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="sidebar-account-menu" id="userAccountMenu">
+          <div class="sidebar-account-identity">
+            <span data-user-kind data-i18n="auth.session.telegram">Telegram 账号</span>
+            <strong id="userMenuName" data-user-name>已登录</strong>
+          </div>
+          <button
+            type="button"
+            class="sidebar-account-action"
+            id="credentialMenuAction"
+            title="设置登录账号"
+            aria-label="设置登录账号"
+            hidden
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="7.5" cy="15.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+              <path d="m10.7 12.3 7.8-7.8m-2 2 2 2m-4-4 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="credentialMenuActionLabel">设置登录账号</span>
+          </button>
+          <a
+            class="sidebar-account-action sidebar-feedback-action"
+            href="https://t.me/fuck_open"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="打开 Telegram 意见反馈"
+            aria-label="意见反馈"
+            data-i18n-title="sidebar.feedback_title"
+            data-i18n-aria-label="sidebar.feedback"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span data-i18n="sidebar.feedback">意见反馈</span>
+          </a>
+          <div class="sidebar-account-divider" aria-hidden="true"></div>
+          <button type="button" class="btn user-logout" id="btnLogout" data-i18n="auth.sign_out">退出</button>
+        </div>
+      </details>
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <div class="page-heading">
+        <h2 id="pageTitle">注册任务</h2>
+        <p id="pageSubtitle">按当前注册模式自动领取邮箱或手机号素材，实时观察任务状态与日志。</p>
+      </div>
+      <div class="stats" aria-label="概览统计">
+        <div class="stat"><span>已注册</span><strong id="statAccounts">0</strong></div>
+        <div class="stat"><span>邮箱总数</span><strong id="statOutlook">0</strong></div>
+        <div class="stat"><span>可用</span><strong id="statAvailable">0</strong></div>
+        <div class="stat"><span>已用</span><strong id="statUsed">0</strong></div>
+        <div class="stat danger"><span>失败</span><strong id="statFailed">0</strong></div>
+        <div class="locale-switch locale-switch-console" role="group" aria-label="切换界面语言" data-i18n-aria-label="language.switch_aria">
+          <button type="button" data-locale-option="zh_cn" aria-pressed="true">中文</button>
+          <button type="button" data-locale-option="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ 注册 ============ -->
+      <div id="tab-register">
+        <section class="card hero-card register-command-card">
+          <div class="register-command">
+            <div>
+              <h2>注册任务控制台</h2>
+              <div class="run-config-summary" id="runConfigSummary">默认：加载中…</div>
+              <div class="run-task-stats" id="runTaskStats">目标成功 -/0 · 排队 0 · 注册中 0</div>
+            </div>
+            <div class="buttons">
+              <button class="btn primary" id="btnStart">开始注册</button>
+              <button class="btn danger" id="btnStopRegister">停止注册</button>
+            </div>
+          </div>
+          <div id="regWarn" class="register-notice"></div>
+        </section>
+        <section class="card table-filter-card">
+          <div class="register-tabs" role="tablist" aria-label="注册任务视图">
+            <button type="button" class="register-tab-btn active" data-register-tab="jobs">任务列表</button>
+            <button type="button" class="register-tab-btn" data-register-tab="logs">注册日志</button>
+          </div>
+
+          <section class="register-panel" data-register-panel="jobs">
+            <div class="toolbar jobs-toolbar">
+              <div class="task-filter-bar">
+                <div><h2>任务列表</h2></div>
+                <div class="search"><input id="qJobs" placeholder="搜索ID、主体、错误…"></div>
+                <div class="custom-select ui-control-shell filter-select-shell" id="statusJobs" data-value="" title="按任务状态筛选">
+                  <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="statusJobs-menu">
+                    <span>全部状态</span>
+                    <i aria-hidden="true"></i>
+                  </button>
+                  <div class="custom-select-menu" role="listbox" id="statusJobs-menu">
+                    <button type="button" class="custom-select-option active" role="option" data-value="" aria-selected="true">全部状态</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="pending" aria-selected="false">排队</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="running" aria-selected="false">运行中</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="success" aria-selected="false">成功</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="cancelled" aria-selected="false">已取消</button>
+                  </div>
+                </div>
+              </div>
+              <div class="buttons">
+                <button class="btn good" id="btnResumePending" title="把数据库里仍为排队状态、但未进入当前进程线程池的任务重新提交执行">恢复排队</button>
+                <button class="btn" id="btnCancelPending" title="把所有 status=排队 的任务标记为已取消，不再执行（已运行中的不影响）">取消所有排队</button>
+                <button class="btn warning" id="btnMarkRunningFailed" title="把当前数据库里残留的运行中任务全部标记为失败">运行中转失败</button>
+                <button class="btn danger" id="btnDeleteFailedJobs" title="删除所有 status=失败 的任务和对应日志文件">删除失败</button>
+                <button class="btn danger" id="btnClearAllJobs" title="删除全部任务记录和日志文件">清空所有任务</button>
+                <button class="btn" id="btnRefreshJobs">手动刷新</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table jobs-table">
+                <thead><tr><th>ID</th><th>状态</th><th>登录主体</th><th>开始</th><th>完成</th><th>错误</th><th>操作</th></tr></thead>
+                <tbody id="jobsBody"></tbody>
+              </table>
+            </div>
+            <div class="pager-bar" id="pager-jobs"></div>
+          </section>
+
+          <section class="register-panel hidden" data-register-panel="logs">
+            <div class="toolbar compact-toolbar">
+              <div>
+                <h2>实时注册日志</h2>
+                <p class="muted" id="logFeedMeta" style="font-size:12px;margin-top:4px;">自动刷新，最多显示最近 700 行。</p>
+              </div>
+              <div class="buttons">
+                <button class="btn hidden" id="btnShowAllLogs">全部日志</button>
+                <button class="btn" id="btnToggleLogAuto">暂停滚动</button>
+                <button class="btn" id="btnRefreshLogs">刷新日志</button>
+              </div>
+            </div>
+            <div class="log-stream-shell">
+              <div class="log-color-layer" id="logColorLayer" role="log" aria-live="polite" aria-label="实时注册日志">加载中…</div>
+            </div>
+            <div class="log-legend">
+              <span class="legend-dot info"></span>INFO
+              <span class="legend-dot warning"></span>WARNING
+              <span class="legend-dot error"></span>ERROR
+              <span class="legend-spacer"></span>
+              <span id="logLineCount">0 行</span>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <!-- ============ 账号 ============ -->
+      <div id="tab-accounts" class="hidden">
+        <section class="card table-filter-card">
+          <div class="toolbar accounts-toolbar">
+            <div class="account-filter-grid">
+              <div class="search"><input id="qAccounts" placeholder="综合搜索：登录主体 / 邮箱 / 手机号 / 来源 / Codex 状态…"></div>
+              <div class="custom-select ui-control-shell filter-select-shell account-source-filter-shell" id="filterAccountSource" data-value="all" title="按来源筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountSource-menu">
+                  <span>全部来源</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountSource-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部来源</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="outlook" aria-selected="false">Outlook</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="buygptpuls_temp" aria-selected="false">buygptpuls 临时邮箱</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="api_otp_mail" aria-selected="false">邮箱API接码</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="phone" aria-selected="false">手机号</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-twofa-filter-shell" id="filterAccount2fa" data-value="all" title="按 2FA 状态筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccount2fa-menu">
+                  <span>全部 2FA</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccount2fa-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部 2FA</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="enabled" aria-selected="false">已开启 2FA</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="disabled" aria-selected="false">未开启 2FA</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-password-filter-shell" id="filterAccountPassword" data-value="all" title="按 GPT 密码状态筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountPassword-menu">
+                  <span>全部密码</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountPassword-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部密码</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="set" aria-selected="false">已设密码</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="unset" aria-selected="false">未设密码</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-codex-filter-shell" id="filterAccountCodex" data-value="all" title="按 Codex 提取状态筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountCodex-menu">
+                  <span>全部 Codex</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountCodex-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部 Codex</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="extracted" aria-selected="false">已提取</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="not_extracted" aria-selected="false">未提取</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="retrying" aria-selected="false">补跑中</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="skipped" aria-selected="false">已跳过</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="deactivated" aria-selected="false">已废号</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-plan-filter-shell" id="filterAccountPlan" data-value="all" title="按账号套餐筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountPlan-menu">
+                  <span>全部套餐</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountPlan-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部套餐</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="free" aria-selected="false">Free</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="plus" aria-selected="false">Plus</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="team" aria-selected="false">Team</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="k12" aria-selected="false">K12</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-archive-filter-shell" id="filterAccountArchive" data-value="all" title="按归档分类筛选" data-i18n-title="accounts.archive.filter_title">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountArchive-menu">
+                  <span data-i18n="accounts.archive.filter_all">全部归档</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountArchive-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true" data-i18n="accounts.archive.filter_all">全部归档</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="unarchived" aria-selected="false" data-i18n="accounts.archive.unarchived">未归档</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell account-trial-filter-shell" id="filterAccountTrial" data-value="all" title="按 0 元试用资格筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterAccountTrial-menu">
+                  <span>全部试用</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterAccountTrial-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部试用</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="unchecked" aria-selected="false">未检测</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="eligible" aria-selected="false">有资格</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="not_eligible" aria-selected="false">无资格</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">检测失败</button>
+                </div>
+              </div>
+            </div>
+            <div class="buttons">
+              <span class="muted selected-hint" id="accountsSelectedHint">已选 0</span>
+              <button class="btn" id="btnArchiveAccounts" disabled data-i18n="accounts.archive.action">归档</button>
+              <button class="btn primary" id="btnCreateAutomationTask" title="按勾选账号或当前筛选结果创建自动化任务">创建任务</button>
+              <button class="btn good" id="btnCustomExportAccounts" title="按勾选账号或当前筛选结果，自定义字段和顺序导出 TXT/JSON">自定义导出</button>
+              <button class="btn" id="btnImportAccounts" title="导入账号资产；完整邮箱材料会同步到邮箱池并标记已使用">导入账号</button>
+              <details class="account-more-actions">
+                <summary class="btn">更多操作</summary>
+                <div class="account-more-menu">
+                  <button class="btn good" id="btnRtExtractAccounts" disabled title="选择 CPA 或 Sub2API，把账号的 ChatGPT Web session/accessToken 转为导入 JSON 下载">提 RT 导出</button>
+                  <button class="btn danger" id="btnDeleteSelectedAccounts" disabled>删除勾选</button>
+                  <button class="btn danger" id="btnDeleteFailedAccounts">删除失败账号</button>
+                  <button class="btn danger" id="btnDeleteAllAccounts">删除全部账号</button>
+                  <button class="btn good" id="copyAllLines">复制当前页整行</button>
+                </div>
+              </details>
+            </div>
+          </div>
+          <div class="table-wrap" id="accountsTableWrap">
+            <table class="data-table accounts-table">
+              <thead><tr><th><input type="checkbox" id="accountSelectAll" title="全选/取消全选当前页"></th><th>登录主体</th><th>类型</th><th title="Codex、密码与 2FA 状态">账号状态</th><th>套餐</th><th data-i18n="accounts.archive.column">归档</th><th>时间</th><th>操作</th></tr></thead>
+              <tbody id="accountsBody"></tbody>
+            </table>
+          </div>
+          <div class="pager-bar" id="pager-accounts"></div>
+          <div class="body hidden" id="retryLogPanel">
+            <h3>账号日志：<span id="retryLogEmail" style="font-size:13px;font-weight:400;color:var(--muted);"></span>
+              <button class="btn" id="btnCloseRetryLog" style="float:right;min-height:28px;">关闭</button>
+            </h3>
+            <div class="log" id="retryLogContent">加载中…</div>
+          </div>
+          <div class="body hidden" id="accountBulkResultPanel">
+            <h3><span id="accountBulkResultTitle">账号批量操作结果</span>
+              <span id="accountBulkResultSummary" style="font-size:13px;font-weight:400;color:var(--muted);"></span>
+              <button class="btn" id="btnCloseAccountBulkResult" style="float:right;min-height:28px;">关闭</button>
+            </h3>
+            <div class="log" id="accountBulkResultContent">暂无结果</div>
+          </div>
+        </section>
+      </div>
+
+      <div id="accountArchiveModal" class="modal-backdrop workspace-modal hidden" aria-hidden="true">
+        <div class="modal-card workspace-modal-card account-archive-modal-card" role="dialog" aria-modal="true" aria-labelledby="accountArchiveModalTitle">
+          <div class="modal-mark">A</div>
+          <div class="modal-main">
+            <section id="accountArchiveAssignView">
+              <div class="account-archive-modal-head">
+                <h3 id="accountArchiveModalTitle" data-i18n="accounts.archive.modal_title">账号归档</h3>
+                <button type="button" class="btn" id="btnManageArchiveCategories" data-i18n="accounts.archive.manage">管理分类</button>
+              </div>
+              <p class="modal-message" id="accountArchiveScopeHint">-</p>
+              <div class="account-archive-assign-row">
+                <label class="workspace-modal-field account-archive-target-field">
+                  <span data-i18n="accounts.archive.target">目标分类</span>
+                  <div id="accountArchiveTargetHost"></div>
+                </label>
+                <div class="modal-actions">
+                  <button type="button" class="btn" id="btnCancelAccountArchive" data-i18n="common.cancel">取消</button>
+                  <button type="button" class="btn primary" id="btnApplyAccountArchive" data-i18n="accounts.archive.apply">确认归档</button>
+                </div>
+              </div>
+            </section>
+            <section id="accountArchiveManageView" class="hidden">
+              <h3 data-i18n="accounts.archive.manage_title">归档分类管理</h3>
+              <p class="modal-message" data-i18n="accounts.archive.manage_hint">分类名称可以随时修改；删除分类不会删除账号。</p>
+              <div class="account-archive-create-row">
+                <input class="ui-control" id="accountArchiveCategoryName" maxlength="32" data-i18n-placeholder="accounts.archive.name_placeholder" placeholder="输入分类名称">
+                <button type="button" class="btn primary" id="btnCreateArchiveCategory" data-i18n="accounts.archive.create">新建分类</button>
+              </div>
+              <div class="account-archive-category-list" id="accountArchiveCategoryList"></div>
+              <div class="modal-actions">
+                <button type="button" class="btn" id="btnBackToArchiveAssign" data-i18n="accounts.archive.back">返回归档</button>
+                <button type="button" class="btn" id="btnCloseArchiveManage" data-i18n="common.close">关闭</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 自动化任务 ============ -->
+      <div id="tab-automation-tasks" class="hidden">
+        <section class="card automation-task-page-card table-filter-card">
+          <div class="automation-summary" id="automationTaskSummary">
+            <div class="mini-stat"><span>进行中</span><strong id="automationRunningCount">0</strong></div>
+            <div class="mini-stat"><span>排队中</span><strong id="automationPendingCount">0</strong></div>
+            <div class="mini-stat"><span>今日完成</span><strong id="automationCompletedCount">0</strong></div>
+            <div class="mini-stat"><span>今日失败</span><strong id="automationFailedCount">0</strong></div>
+          </div>
+          <div class="toolbar automation-task-toolbar">
+            <div class="task-filter-bar">
+              <div><h2>任务中心</h2><p class="muted automation-toolbar-note">全局一次运行一个任务，任务内按线程并发。</p></div>
+              <div class="search"><input id="qAutomationTasks" placeholder="搜索任务类型或账号主体…"></div>
+              <div class="custom-select ui-control-shell filter-select-shell" id="automationTaskGroup" data-value="all" title="按任务分组">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false"><span>全部任务</span><i aria-hidden="true"></i></button>
+                <div class="custom-select-menu" role="listbox">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部任务</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="active" aria-selected="false">进行中</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="completed" aria-selected="false">已完成</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell" id="automationTaskStatus" data-value="" title="按任务状态">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false"><span>全部状态</span><i aria-hidden="true"></i></button>
+                <div class="custom-select-menu" role="listbox">
+                  <button type="button" class="custom-select-option active" role="option" data-value="" aria-selected="true">全部状态</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="pending" aria-selected="false">排队中</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="running" aria-selected="false">运行中</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="stopping" aria-selected="false">停止中</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="completed" aria-selected="false">已完成</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="partial" aria-selected="false">部分成功</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="stopped" aria-selected="false">已停止</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="cancelled" aria-selected="false">已取消</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="interrupted" aria-selected="false">已中断</button>
+                </div>
+              </div>
+            </div>
+            <div class="buttons"><button class="btn" id="btnRefreshAutomationTasks">刷新</button><button class="btn danger" id="btnDeleteSelectedAutomationTasks" disabled>删除选中</button><button class="btn danger" id="btnClearAutomationTasks">清理终态</button></div>
+          </div>
+          <div class="table-wrap"><table class="data-table automation-task-table"><thead><tr><th><input type="checkbox" id="automationTaskSelectAll" title="选择当前页可删除任务"></th><th>ID</th><th>任务</th><th>状态</th><th>进度</th><th>线程</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="automationTasksBody"></tbody></table></div>
+          <div class="pager-bar" id="pager-automation-tasks"></div>
+        </section>
+        <section class="card automation-detail-card hidden" id="automationTaskDetail">
+          <div class="head"><h2>任务详情 <span class="muted" id="automationTaskDetailTitle"></span></h2><div class="buttons"><button class="btn" id="btnCloseAutomationDetail">关闭详情</button><button class="btn danger" id="btnStopAutomationDetail">停止任务</button><button class="btn" id="btnRetryAutomationDetail">重试失败项</button><button class="btn danger" id="btnDeleteAutomationDetail">删除历史</button></div></div>
+          <div class="automation-detail-meta" id="automationTaskDetailMeta"></div>
+          <div class="table-wrap"><table class="data-table automation-item-table"><thead><tr><th>账号</th><th>状态</th><th>结果</th><th>更新时间</th><th>日志</th></tr></thead><tbody id="automationTaskItemsBody"></tbody></table></div>
+          <div class="pager-bar" id="pager-automation-items"></div>
+          <pre class="log automation-item-log hidden" id="automationItemLog"></pre>
+        </section>
+      </div>
+
+      <div id="automationTaskComposer" class="modal-backdrop workspace-modal hidden" aria-hidden="true">
+        <div class="modal-card workspace-modal-card automation-composer-card" role="dialog" aria-modal="true" aria-labelledby="automationComposerTitle">
+          <div class="modal-mark">T</div>
+          <div class="modal-main">
+            <h3 id="automationComposerTitle">新建自动化任务</h3>
+            <p class="modal-message">任务会冻结当前账号范围。停止任务只会在安全检查点生效，不会回滚已经写入的账号结果。</p>
+            <div class="workspace-modal-grid automation-composer-grid">
+              <label class="workspace-modal-field"><span>任务类型</span>
+                <div class="custom-select ui-control-shell filter-select-shell automation-composer-select-shell" id="automationComposerType" data-value="codex_retry" title="选择任务类型">
+                  <button type="button" class="ui-control filter-select automation-composer-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="automationComposerType-menu"><span>提取Codex</span><i aria-hidden="true"></i></button>
+                  <div class="custom-select-menu" role="listbox" id="automationComposerType-menu">
+                    <button type="button" class="custom-select-option active" role="option" data-value="codex_retry" aria-selected="true">提取Codex</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="access_token_relogin" aria-selected="false">测活</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="password_setup" aria-selected="false">设置密码</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="twofa_setup" aria-selected="false">设置2FA</button>
+                    <button type="button" class="custom-select-option hidden" role="option" data-value="trial_check" aria-selected="false" aria-disabled="true" disabled>0元试用检测</button>
+                  </div>
+                </div>
+              </label>
+              <label class="workspace-modal-field"><span>并发线程（1-16）</span><input class="ui-control" id="automationComposerWorkers" type="number" min="1" max="16" value="5"></label>
+              <label class="workspace-modal-field"><span>执行范围</span>
+                <div class="custom-select ui-control-shell filter-select-shell automation-composer-select-shell" id="automationComposerScope" data-value="filtered" title="选择执行范围">
+                  <button type="button" class="ui-control filter-select automation-composer-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="automationComposerScope-menu"><span>当前筛选结果</span><i aria-hidden="true"></i></button>
+                  <div class="custom-select-menu" role="listbox" id="automationComposerScope-menu">
+                    <button type="button" class="custom-select-option" role="option" data-value="selected" aria-selected="false">指定账号主体</button>
+                    <button type="button" class="custom-select-option active" role="option" data-value="filtered" aria-selected="true">当前筛选结果</button>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <label class="workspace-modal-field"><span id="automationComposerIdentitiesLabel">账号主体预览</span><textarea class="ui-control" id="automationComposerIdentities" rows="5" placeholder="正在读取筛选结果…" readonly></textarea></label>
+            <div class="workspace-modal-hint" id="automationComposerHint">范围：-</div>
+            <div class="modal-actions"><button type="button" class="btn" id="btnCancelAutomationComposer">取消</button><button type="button" class="btn primary" id="btnSubmitAutomationComposer">创建任务</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="rtExtractModal" class="modal-backdrop workspace-modal hidden" aria-hidden="true">
+        <div class="modal-card workspace-modal-card rt-extract-modal-card" role="dialog" aria-modal="true" aria-labelledby="rtExtractModalTitle">
+          <div class="modal-mark">R</div>
+          <div class="modal-main">
+            <h3 id="rtExtractModalTitle">选择提 RT 导出格式</h3>
+            <p class="modal-message">把账号资产里的 ChatGPT Web session/accessToken 转成目标工具可导入的 JSON。未勾选时只处理当前筛选结果，不会无视筛选扫全库。</p>
+            <div class="rt-extract-choice-grid">
+              <button type="button" class="rt-extract-choice-card" id="btnRtExtractChooseCpa">
+                <strong>CPA</strong>
+                <span>导出 CPA JSON</span>
+                <small>适合 CPA 账号导入格式</small>
+              </button>
+              <button type="button" class="rt-extract-choice-card" id="btnRtExtractChooseSub2api">
+                <strong>Sub2API</strong>
+                <span>导出 Sub2API JSON</span>
+                <small>适合 Sub2API 管理后台导入</small>
+              </button>
+            </div>
+            <div class="workspace-modal-hint" id="rtExtractModalHint">当前范围：-</div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="btnCancelRtExtractModal">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="customExportModal" class="modal-backdrop workspace-modal hidden" aria-hidden="true">
+        <div class="modal-card workspace-modal-card account-io-modal-card" role="dialog" aria-modal="true" aria-labelledby="customExportModalTitle">
+          <div class="modal-mark">E</div>
+          <div class="modal-main">
+            <h3 id="customExportModalTitle">账号资产自定义导出</h3>
+            <p class="modal-message">按当前勾选账号导出；未勾选时导出当前筛选结果。可调整字段顺序，字段不包含登录主体、账号来源和 Codex 状态。</p>
+            <div class="workspace-modal-grid account-io-grid">
+              <label class="workspace-modal-field">
+                <span>导出格式</span>
+                <div class="custom-select ui-control-shell filter-select-shell account-io-select-shell" id="customExportFormat" data-value="txt" title="导出格式">
+                  <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="customExportFormat-menu">
+                    <span>TXT</span><i aria-hidden="true"></i>
+                  </button>
+                  <div class="custom-select-menu" role="listbox" id="customExportFormat-menu">
+                    <button type="button" class="custom-select-option active" role="option" data-value="txt" aria-selected="true">TXT</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="json" aria-selected="false">JSON</button>
+                  </div>
+                </div>
+              </label>
+              <label class="workspace-modal-field" id="customExportDelimiterWrap">
+                <span>TXT 分隔符</span>
+                <input class="ui-control" id="customExportDelimiter" value="----" spellcheck="false">
+              </label>
+              <label class="workspace-modal-field account-io-wide">
+                <span>常用预设</span>
+                <div class="custom-select ui-control-shell filter-select-shell account-io-select-shell" id="customExportPreset" data-value="email_mailbox_password_client_rt" title="常用导出字段预设">
+                  <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="customExportPreset-menu">
+                    <span>邮箱----邮箱密码----Client ID----Refresh Token</span><i aria-hidden="true"></i>
+                  </button>
+                  <div class="custom-select-menu" role="listbox" id="customExportPreset-menu">
+                    <button type="button" class="custom-select-option active" role="option" data-value="email_mailbox_password_client_rt" aria-selected="true">邮箱----邮箱密码----Client ID----Refresh Token</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="email_mailbox_password_client_rt_token" aria-selected="false">邮箱----邮箱密码----Client ID----Refresh Token----Token（账号Token）</button>
+                    <button type="button" class="custom-select-option" role="option" data-value="email_gpt_password" aria-selected="false">邮箱----GPT密码----2FA</button>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <div class="workspace-modal-field">
+              <span>字段顺序</span>
+              <div class="account-io-field-list" id="customExportFieldList"></div>
+            </div>
+            <div class="account-io-add-row">
+              <div class="custom-select ui-control-shell filter-select-shell account-io-select-shell" id="customExportAddField" data-value="" title="添加导出字段">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="customExportAddField-menu">
+                  <span>选择字段</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="customExportAddField-menu"></div>
+              </div>
+              <button type="button" class="btn" id="btnCustomExportAddField">添加字段</button>
+            </div>
+            <div class="workspace-modal-hint" id="customExportScopeHint">当前范围：-</div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="btnCancelCustomExport">取消</button>
+              <button type="button" class="btn good" id="btnStartCustomExport">开始导出</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="accountImportModal" class="modal-backdrop workspace-modal hidden" aria-hidden="true">
+        <div class="modal-card workspace-modal-card account-io-modal-card" role="dialog" aria-modal="true" aria-labelledby="accountImportModalTitle">
+          <div class="modal-mark">I</div>
+          <div class="modal-main">
+            <div class="account-import-scroll-body">
+              <h3 id="accountImportModalTitle">导入账号资产</h3>
+              <p class="modal-message">导入目标是账号资产表；完整 Outlook 或邮箱接码 API 材料会同步到对应邮箱池，并标记为已使用，避免再次参与注册。默认 TXT 支持：邮箱----邮箱密码----client_id----刷新令牌、手机号----GPT密码、邮箱----GPT密码、邮箱----接码api地址；JSON 中 email_password 是邮箱密码，password 是 GPT 密码。</p>
+              <div class="workspace-modal-grid account-io-grid">
+                <label class="workspace-modal-field">
+                  <span>导入格式</span>
+                  <div class="custom-select ui-control-shell filter-select-shell account-io-select-shell" id="accountImportFormat" data-value="txt" title="导入格式">
+                    <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="accountImportFormat-menu">
+                      <span>TXT</span><i aria-hidden="true"></i>
+                    </button>
+                    <div class="custom-select-menu" role="listbox" id="accountImportFormat-menu">
+                      <button type="button" class="custom-select-option active" role="option" data-value="txt" aria-selected="true">TXT</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="json" aria-selected="false">JSON</button>
+                    </div>
+                  </div>
+                </label>
+                <label class="workspace-modal-field" id="accountImportDelimiterWrap">
+                  <span>TXT 分隔符</span>
+                  <input class="ui-control" id="accountImportDelimiter" value="----" spellcheck="false">
+                </label>
+                <label class="workspace-modal-field account-io-checkbox account-io-wide">
+                  <input type="checkbox" id="accountImportOverwrite">
+                  <span>覆盖已有账号的非空字段</span>
+                </label>
+              </div>
+              <div class="account-import-workspace">
+                <div class="workspace-modal-field" id="accountImportFieldWrap">
+                  <span>TXT 字段顺序</span>
+                  <div class="account-io-field-list" id="accountImportFieldList"></div>
+                  <div class="account-io-add-row">
+                    <div class="custom-select ui-control-shell filter-select-shell account-io-select-shell" id="accountImportAddField" data-value="" title="添加导入字段">
+                      <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="accountImportAddField-menu">
+                        <span>选择字段</span><i aria-hidden="true"></i>
+                      </button>
+                      <div class="custom-select-menu" role="listbox" id="accountImportAddField-menu"></div>
+                    </div>
+                    <button type="button" class="btn" id="btnAccountImportAddField">添加字段</button>
+                  </div>
+                </div>
+                <div class="account-import-input-pane">
+                  <label class="workspace-modal-field">
+                    <span>导入内容</span>
+                    <textarea class="ui-control account-import-textarea" id="accountImportText" rows="9" spellcheck="false" placeholder="user@example.com----邮箱密码----client_id----refresh_token&#10;+15551234567----GPT密码&#10;user@example.com----GPT密码&#10;user@example.com----https://mail-api.example/code"></textarea>
+                  </label>
+                  <div class="workspace-modal-hint" id="accountImportHint">默认不覆盖已有非空字段，只补空字段；勾选覆盖后会用导入的非空值覆盖。</div>
+                  <div class="account-io-result hidden" id="accountImportResult"></div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="btnCancelAccountImport">取消</button>
+              <button type="button" class="btn good" id="btnStartAccountImport">开始导入</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ Codex 授权 ============ -->
+      <div id="tab-codex" class="hidden">
+        <section class="card table-filter-card">
+          <div class="toolbar">
+            <div>
+              <h2>Codex 授权账号</h2>
+              <p class="muted" style="font-size:12px;margin-top:4px;">
+                注册时自动跑 Codex 授权产出的凭证。支持本地 gpt-5.5 试聊测活、原始 JSON、CPA 文件、Sub2API bundle 下载；本地测活只走 ChatGPT Codex 后端，不检查 CPA/Sub2API 远端库存。
+              </p>
+            </div>
+            <div class="buttons">
+              <button class="btn" id="btnRefreshCodex">刷新</button>
+            </div>
+          </div>
+          <div class="codex-stat-grid">
+            <div class="mini-stat tone-blue">
+              <span>总数</span>
+              <strong id="codexStatTotal">0</strong>
+            </div>
+            <div class="mini-stat tone-green">
+              <span>已导出</span>
+              <strong id="codexStatExported">0</strong>
+            </div>
+            <div class="mini-stat tone-amber">
+              <span>未导出</span>
+              <strong id="codexStatPending">0</strong>
+            </div>
+          </div>
+          <div class="toolbar compact-toolbar">
+            <div class="codex-filter-bar">
+              <div class="search"><input id="qCodex" placeholder="搜索邮箱、文件名…"></div>
+              <div class="custom-select ui-control-shell filter-select-shell codex-export-filter-shell" id="filterCodexExport" data-value="all" title="按导出状态筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterCodexExport-menu">
+                  <span>全部导出状态</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterCodexExport-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部导出状态</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="exported" aria-selected="false">已导出</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="pending" aria-selected="false">未导出</button>
+                </div>
+              </div>
+              <div class="custom-select ui-control-shell filter-select-shell codex-check-filter-shell" id="filterCodexCheck" data-value="all" title="按测活状态筛选">
+                <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterCodexCheck-menu">
+                  <span>全部测活状态</span><i aria-hidden="true"></i>
+                </button>
+                <div class="custom-select-menu" role="listbox" id="filterCodexCheck-menu">
+                  <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部测活状态</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="unchecked" aria-selected="false">未测活</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="ok" aria-selected="false">试聊成功</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="alive" aria-selected="false">凭证可达</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="quota" aria-selected="false">额度限制</button>
+                  <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败/失效</button>
+                </div>
+              </div>
+            </div>
+            <div class="buttons">
+              <span class="muted" id="codexSelectedHint" style="font-size:12px;align-self:center;margin-right:4px;">已选 0</span>
+              <button class="btn primary" id="btnCodexRefreshToken" disabled title="刷新 Codex access_token；未勾选时作用于当前搜索/筛选结果">刷新全部 Token</button>
+              <button class="btn good" id="btnCodexCheckSelected" disabled title="用本地 Codex 凭证直连 gpt-5.5 发 hi，不调用 CPA/Sub2API 仓管测活">测活选中</button>
+              <button class="btn" id="btnCodexCheckFiltered" title="测活当前搜索和筛选结果中的全部账号，最多 100 个">测活全部</button>
+              <button class="btn" id="btnCodexDownloadCpa" disabled title="按 CPA {email}.json 格式下载，批量时返回 ZIP，不包含代理">下载 CPA</button>
+              <button class="btn" id="btnCodexDownloadSub2api" disabled title="按 Sub2API sub2api-data bundle 下载，不包含代理">下载 Sub2API</button>
+              <button class="btn good" id="btnCodexUploadRelay" disabled title="上传到运行配置中已开启的 CPA / Sub2API；缺少 refresh_token 的凭证会跳过">上传到中转</button>
+              <button class="btn danger" id="btnCodexDeleteSelected" disabled title="删除勾选的 Codex 凭证文件，不删除账号资产">删除选中</button>
+              <button class="btn danger" id="btnCodexDeleteFiltered" title="删除当前搜索和筛选结果中的全部 Codex 凭证文件，不删除账号资产">删除全部</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table codex-table">
+              <thead><tr>
+                <th style="width:32px;"><input type="checkbox" id="codexSelectAll" title="全选/取消全选当前页"></th>
+                <th>邮箱</th><th>导出状态</th><th>测活状态</th><th>RT</th><th>更新时间</th><th>过期时间</th><th>操作</th>
+              </tr></thead>
+              <tbody id="codexBody"></tbody>
+            </table>
+          </div>
+          <div class="pager-bar" id="pager-codex"></div>
+          <div class="body hidden" id="codexBulkResultPanel">
+            <h3><span id="codexBulkResultTitle">Codex 批量操作结果</span>
+              <span id="codexBulkResultSummary" style="font-size:13px;font-weight:400;color:var(--muted);"></span>
+              <button class="btn" id="btnCloseCodexBulkResult" style="float:right;min-height:28px;">关闭</button>
+            </h3>
+            <div class="log" id="codexBulkResultContent">暂无结果</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ============ 邮箱池 ============ -->
+      <div id="tab-outlook" class="hidden">
+        <div class="config-tabs email-pool-tabs" id="emailPoolTabs" role="tablist" aria-label="邮箱池类型">
+          <button type="button" class="config-tab-btn email-pool-tab active" data-pool-tab="outlook">
+            <span>Outlook邮箱</span><small id="outlookPoolCount">0</small>
+          </button>
+          <button type="button" class="config-tab-btn email-pool-tab" data-pool-tab="api-otp-mail">
+            <span>API接码邮箱</span><small id="apiOtpMailPoolCount">0</small>
+          </button>
+        </div>
+        <div class="email-pool-panels">
+          <section class="config-panel email-pool-panel" data-pool-panel="outlook">
+            <div class="config-panel-head">
+              <div><h3>Outlook 邮箱池</h3><p>导入 Outlook OAuth 素材，维护可用状态，并按当前邮箱来源领取。</p></div>
+              <span class="config-count" id="outlookPoolBadge">0 个</span>
+            </div>
+            <section class="sub-card">
+              <div class="head"><h2>导入 Outlook 邮箱素材</h2><p>每行一个：邮箱----密码----clientId----refreshToken（---- 或 ==== 分隔均可），已存在的邮箱会自动跳过。</p></div>
+              <div class="body">
+                <div id="importResult"></div>
+                <textarea id="importText" placeholder="email----password----clientId----refreshToken"></textarea>
+                <div style="margin-top:10px;"><button class="btn primary" id="btnImport">导入到 Outlook 邮箱池</button></div>
+              </div>
+            </section>
+            <section class="sub-card">
+              <div class="toolbar">
+                <div class="pool-filter-bar">
+                  <div class="search"><input id="qOutlook" placeholder="搜索邮箱…"></div>
+                  <div class="custom-select ui-control-shell filter-select-shell" id="filterOutlookStatus" data-value="all" title="按使用状态筛选">
+                    <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterOutlookStatus-menu"><span>全部状态</span><i aria-hidden="true"></i></button>
+                    <div class="custom-select-menu" role="listbox" id="filterOutlookStatus-menu">
+                      <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部状态</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="available" aria-selected="false">可用</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="used" aria-selected="false">已用</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="buttons">
+                  <span class="muted selected-hint" id="OutlookSelectedHint">已选 0</span>
+                  <button class="btn warning" id="btnSplitOutlook">分裂邮箱</button>
+                  <button class="btn good" id="btnExportOutlook" disabled>导出选中</button>
+                  <button class="btn danger" id="btnDeleteOutlook" disabled>删除选中</button>
+                  <button class="btn" id="copyAllEmails">复制全部 Outlook 素材</button>
+                  <button class="btn danger" id="btnClearOutlook">清空 Outlook 邮箱池</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table outlook-table">
+                  <thead><tr><th><input type="checkbox" id="outlookSelectAll" title="全选/取消全选当前页"></th><th>邮箱</th><th>状态</th><th>Token</th><th>已用时间</th><th>操作</th></tr></thead>
+                  <tbody id="outlookBody"></tbody>
+                </table>
+              </div>
+              <div class="pager-bar" id="pager-outlook"></div>
+            </section>
+          </section>
+
+          <section class="config-panel email-pool-panel hidden" data-pool-panel="api-otp-mail">
+            <div class="config-panel-head">
+              <div><h3>API 接码邮箱池</h3><p>导入“邮箱----接码api地址”，领取邮箱后直接请求 API 内容匹配 6 位验证码。</p></div>
+              <span class="config-count" id="apiOtpMailPoolBadge">0 个</span>
+            </div>
+            <section class="sub-card">
+              <div class="head"><h2>导入 API 接码邮箱</h2><p>每行一个：邮箱----接码api地址；FlySMS：邮箱---token---https://flysms.xyz/icloud/pickup#email=...&amp;key=...</p></div>
+              <div class="body">
+                <div id="importApiOtpMailResult"></div>
+                <textarea id="importApiOtpMailText" placeholder="email----https://mailapi.com/key?orderNo=xxx&#10;email---token---https://flysms.xyz/icloud/pickup#email=...&amp;key=..."></textarea>
+                <div style="margin-top:10px;"><button class="btn primary" id="btnImportApiOtpMail">导入到 API 接码邮箱池</button></div>
+              </div>
+            </section>
+            <section class="sub-card">
+              <div class="toolbar">
+                <div class="pool-filter-bar">
+                  <div class="search"><input id="qApiOtpMail" placeholder="搜索邮箱、API…"></div>
+                  <div class="custom-select ui-control-shell filter-select-shell" id="filterApiOtpMailStatus" data-value="all" title="按使用状态筛选">
+                    <button type="button" class="ui-control filter-select custom-select-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="filterApiOtpMailStatus-menu"><span>全部状态</span><i aria-hidden="true"></i></button>
+                    <div class="custom-select-menu" role="listbox" id="filterApiOtpMailStatus-menu">
+                      <button type="button" class="custom-select-option active" role="option" data-value="all" aria-selected="true">全部状态</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="available" aria-selected="false">可用</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="used" aria-selected="false">已用</button>
+                      <button type="button" class="custom-select-option" role="option" data-value="failed" aria-selected="false">失败</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="buttons">
+                  <span class="muted selected-hint" id="ApiOtpMailSelectedHint">已选 0</span>
+                  <button class="btn good" id="btnExportApiOtpMail" disabled>导出选中</button>
+                  <button class="btn danger" id="btnDeleteApiOtpMail" disabled>删除选中</button>
+                  <button class="btn" id="copyAllApiOtpMail">复制全部 API 接码素材</button>
+                  <button class="btn danger" id="btnClearApiOtpMail">清空 API 接码邮箱池</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table outlook-table api-otp-mail-table">
+                  <thead><tr><th><input type="checkbox" id="apiOtpMailSelectAll" title="全选/取消全选当前页"></th><th>邮箱 / API</th><th>状态</th><th>已用时间</th><th>操作</th></tr></thead>
+                  <tbody id="apiOtpMailBody"></tbody>
+                </table>
+              </div>
+              <div class="pager-bar" id="pager-apiOtpMail"></div>
+            </section>
+          </section>
+        </div>
+      </div>
+
+      <!-- ============ 支付链接提取 ============ -->
+      <div id="tab-upi" class="hidden">
+        <section class="upi-page" aria-label="支付链接提取管理">
+          <div class="upi-tabs" role="tablist" aria-label="支付链接管理视图">
+            <button type="button" class="active" data-upi-tab="tasks" role="tab" aria-selected="true">提取列表</button>
+            <button type="button" data-upi-tab="scanners" role="tab" aria-selected="false">扫码商管理</button>
+            <button type="button" data-upi-tab="settings" role="tab" aria-selected="false">设置</button>
+          </div>
+
+          <section class="upi-panel" data-upi-panel="tasks">
+            <div class="upi-toolbar upi-task-toolbar">
+              <div class="upi-summary" aria-live="polite">
+                <span>容量占用 <strong id="upiOccupiedCount">0</strong></span>
+                <span>可领取 <strong id="upiAvailableCount">0</strong></span>
+              </div>
+              <div class="upi-filters">
+                <input id="upiTaskSearch" type="search" placeholder="搜索邮箱">
+                <select id="upiTaskStatus" title="按状态筛选">
+                  <option value="">全部状态</option>
+                  <option value="local_queued">等待提交</option>
+                  <option value="queued">上游排队</option>
+                  <option value="extracting">提取中</option>
+                  <option value="available">待领取</option>
+                  <option value="claimed">扫码中</option>
+                  <option value="succeeded">支付成功</option>
+                  <option value="failed">失败</option>
+                  <option value="expired">已过期</option>
+                 </select>
+                <button type="button" class="btn primary" id="upiManualSubmit">手动提交</button>
+                <button type="button" class="btn" id="upiRefreshTasks">刷新</button>
+              </div>
+            </div>
+            <div class="table-wrap upi-table-wrap">
+              <table class="data-table upi-task-table">
+                <thead><tr><th>ID</th><th>邮箱</th><th>渠道</th><th>状态</th><th>结果</th><th>提交时间</th><th>剩余时间</th><th>耗时</th><th>操作</th></tr></thead>
+                <tbody id="upiTaskBody"></tbody>
+              </table>
+            </div>
+            <div class="pager-bar" id="upiTaskPager"></div>
+          </section>
+
+          <section class="upi-panel hidden" data-upi-panel="scanners">
+            <div class="upi-toolbar">
+              <div class="upi-section-heading">
+                <h3>扫码商</h3>
+                <span>余额按领取时的单价结算</span>
+              </div>
+              <button type="button" class="btn primary" id="upiCreateScanner">+ 创建扫码商</button>
+            </div>
+            <div class="table-wrap upi-table-wrap">
+              <table class="data-table upi-scanner-table">
+                <thead><tr><th>备注</th><th>状态</th><th>单次价格</th><th>余额</th><th>当前领取</th><th>成功数</th><th>专属链接</th><th>操作</th></tr></thead>
+                <tbody id="upiScannerBody"></tbody>
+              </table>
+            </div>
+            <div class="pager-bar" id="upiScannerPager"></div>
+          </section>
+
+          <section class="upi-panel hidden" data-upi-panel="settings">
+            <form class="upi-settings-form" id="upiSettingsForm">
+              <div class="upi-settings-grid">
+                <label class="upi-card-field">
+                  <span>支付链接卡密</span>
+                  <div class="upi-card-input-row">
+                    <input id="upiSettingCard" type="text" autocomplete="off" placeholder="未设置">
+                    <button type="button" class="btn" id="upiQueryCard">查询卡密</button>
+                  </div>
+                  <small class="upi-card-summary muted" id="upiCardSummary" aria-live="polite"></small>
+                </label>
+                <label><span>最大待扫任务数</span><input id="upiSettingMaxPending" type="number" min="1" max="10000" step="1"></label>
+                <label><span>默认获取二维码数量</span><input id="upiSettingClaimCount" type="number" min="1" max="20" step="1"></label>
+              </div>
+              <div class="upi-settings-actions"><button type="submit" class="btn primary">保存设置</button></div>
+            </form>
+          </section>
+        </section>
+      </div>
+
+      <!-- ============ 卡池支付 ============ -->
+      <div id="tab-cardpool" class="hidden">
+        <section class="upi-page" aria-label="卡池支付管理">
+          <div class="upi-tabs" role="tablist" aria-label="卡池支付管理视图">
+            <button type="button" class="active" data-cardpool-tab="cards" role="tab" aria-selected="true">虚拟卡</button>
+            <button type="button" data-cardpool-tab="paypal" role="tab" aria-selected="false">PayPal 池</button>
+            <button type="button" data-cardpool-tab="jobs" role="tab" aria-selected="false">支付任务</button>
+            <button type="button" data-cardpool-tab="settings" role="tab" aria-selected="false">设置</button>
+          </div>
+
+          <section class="upi-panel" data-cardpool-panel="cards">
+            <div class="upi-toolbar upi-task-toolbar">
+              <div class="upi-summary" aria-live="polite">
+                <span>总数 <strong id="cardPoolCardTotal">0</strong></span>
+                <span>可用 <strong id="cardPoolCardActive">0</strong></span>
+                <span>租约中 <strong id="cardPoolCardInUse">0</strong></span>
+                <span>报废 <strong id="cardPoolCardScrapped">0</strong></span>
+              </div>
+              <div class="upi-filters">
+                <button type="button" class="btn primary" id="cardPoolAddCard">+ 添加卡片</button>
+                <button type="button" class="btn" id="cardPoolImportCards">批量导入</button>
+                <button type="button" class="btn" id="cardPoolRefreshCards">刷新</button>
+              </div>
+            </div>
+            <div class="table-wrap upi-table-wrap">
+              <table class="data-table upi-scanner-table">
+                <thead><tr><th>ID</th><th>卡型</th><th>BIN</th><th>卡号</th><th>有效期</th><th>状态</th><th>使用/成功/失败</th><th>最近结果</th><th>备注</th><th>操作</th></tr></thead>
+                <tbody id="cardPoolCardBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="upi-panel hidden" data-cardpool-panel="paypal">
+            <div class="upi-toolbar">
+              <div class="upi-section-heading">
+                <h3>PayPal 账号池</h3>
+                <span>手机号 + OTP 短信 API，按最少使用优先挑选</span>
+              </div>
+              <button type="button" class="btn primary" id="cardPoolAddPaypal">+ 添加账号</button>
+              <button type="button" class="btn" id="cardPoolImportPaypal">批量导入</button>
+            </div>
+            <div class="table-wrap upi-table-wrap">
+              <table class="data-table upi-scanner-table">
+                <thead><tr><th>ID</th><th>手机号</th><th>OTP API</th><th>状态</th><th>使用/成功/失败</th><th>最近 OTP</th><th>备注</th><th>操作</th></tr></thead>
+                <tbody id="cardPoolPaypalBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="upi-panel hidden" data-cardpool-panel="jobs">
+            <div class="upi-toolbar upi-task-toolbar">
+              <div class="upi-summary" aria-live="polite">
+                <span>排队 <strong id="cardPoolJobQueued">0</strong></span>
+                <span>执行中 <strong id="cardPoolJobRunning">0</strong></span>
+                <span>成功 <strong id="cardPoolJobSucceeded">0</strong></span>
+                <span>失败 <strong id="cardPoolJobFailed">0</strong></span>
+              </div>
+              <div class="upi-filters">
+                <button type="button" class="btn primary" id="cardPoolManualPay">手动支付</button>
+                <button type="button" class="btn" id="cardPoolProcessQueued">执行排队</button>
+                <button type="button" class="btn" id="cardPoolRefreshJobs">刷新</button>
+              </div>
+            </div>
+            <div class="table-wrap upi-table-wrap">
+              <table class="data-table upi-scanner-table">
+                <thead><tr><th>ID</th><th>方式</th><th>链接</th><th>邮箱</th><th>来源</th><th>状态</th><th>资产</th><th>结果/错误</th><th>创建时间</th><th>操作</th></tr></thead>
+                <tbody id="cardPoolJobBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="upi-panel hidden" data-cardpool-panel="settings">
+            <form class="upi-settings-form" id="cardPoolSettingsForm">
+              <div class="upi-settings-grid" id="cardPoolSettingsFields">加载中…</div>
+              <div class="upi-settings-actions"><button type="submit" class="btn primary">保存设置</button></div>
+            </form>
+          </section>
+        </section>
+      </div>
+
+      <!-- ============ 配置 ============ -->
+      <div id="tab-config" class="hidden">
+        <div class="config-page">
+          <div id="configForm">加载中…</div>
+          <div class="config-actions"><button class="btn primary" id="btnSaveConfig">保存配置</button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="upiManualSubmitModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="upiManualSubmitTitle">
+    <div class="modal-main">
+      <h3 id="upiManualSubmitTitle">手动提交 AccessToken</h3>
+      <form id="upiManualSubmitForm" class="upi-modal-form">
+        <label><span>AccessToken</span><textarea id="upiManualAccessToken" rows="8" spellcheck="false" autocomplete="off" required></textarea></label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="upiManualSubmitCancel">取消</button>
+          <button type="submit" class="btn primary" id="upiManualSubmitConfirm">提交</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="upiScannerModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="upiScannerModalTitle">
+    <div class="modal-main">
+      <h3 id="upiScannerModalTitle">创建扫码商</h3>
+      <form id="upiScannerForm" class="upi-modal-form">
+        <input id="upiScannerId" type="hidden">
+        <label><span>备注</span><input id="upiScannerNote" type="text" maxlength="120" required></label>
+        <label><span>单次扫码成功价格（USD）</span><input id="upiScannerReward" type="number" min="0" step="0.01" required></label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="upiScannerModalCancel">取消</button>
+          <button type="submit" class="btn primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="upiLedgerModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card upi-ledger-modal" role="dialog" aria-modal="true" aria-labelledby="upiLedgerTitle">
+    <div class="modal-main">
+      <div class="upi-modal-head"><h3 id="upiLedgerTitle">余额流水</h3><button type="button" class="upi-close-button" id="upiLedgerClose" title="关闭" aria-label="关闭">×</button></div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>时间</th><th>类型</th><th>变动</th><th>余额</th></tr></thead><tbody id="upiLedgerBody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<div id="upiTaskLogModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card upi-task-log-modal" role="dialog" aria-modal="true" aria-labelledby="upiTaskLogTitle">
+    <div class="modal-main">
+      <div class="upi-modal-head"><h3 id="upiTaskLogTitle">任务领取日志</h3><button type="button" class="upi-close-button" id="upiTaskLogClose" title="关闭" aria-label="关闭">×</button></div>
+      <p class="upi-task-log-summary muted" id="upiTaskLogSummary"></p>
+      <div class="table-wrap"><table class="data-table upi-task-log-table"><thead><tr><th>领取时间</th><th>扫码商</th><th>扫码状态</th><th>成功</th><th>完成时间</th><th>奖励</th></tr></thead><tbody id="upiTaskLogBody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 卡池支付弹窗 ============ -->
+<div id="cardPoolCardModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolCardModalTitle">
+    <div class="modal-main">
+      <h3 id="cardPoolCardModalTitle">添加卡片</h3>
+      <form id="cardPoolCardForm" class="upi-modal-form">
+        <label><span>卡号</span><input id="cardPoolCardNumber" type="text" autocomplete="off" placeholder="16 位卡号" required></label>
+        <label><span>有效期</span><input id="cardPoolCardExpires" type="text" autocomplete="off" placeholder="MM/YY 或 MM/YYYY" required></label>
+        <label><span>CVV</span><input id="cardPoolCardCvv" type="text" autocomplete="off" placeholder="3-4 位" required></label>
+        <div class="upi-settings-grid">
+          <label><span>账单邮编</span><input id="cardPoolCardZip" type="text" autocomplete="off" placeholder="如 10001"></label>
+          <label><span>账单国家</span><input id="cardPoolCardCountry" type="text" autocomplete="off" value="US" maxlength="2"></label>
+        </div>
+        <label><span>备注</span><input id="cardPoolCardNotes" type="text" autocomplete="off"></label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="cardPoolCardModalCancel">取消</button>
+          <button type="submit" class="btn primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="cardPoolImportModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card upi-task-log-modal" role="dialog" aria-modal="true" aria-labelledby="cardPoolImportTitle">
+    <div class="modal-main">
+      <div class="upi-modal-head"><h3 id="cardPoolImportTitle">批量导入</h3><button type="button" class="upi-close-button" id="cardPoolImportClose" title="关闭" aria-label="关闭">×</button></div>
+      <p class="muted" id="cardPoolImportHint">每行一个，分隔符 | 或 ,</p>
+      <textarea id="cardPoolImportText" rows="10" spellcheck="false" autocomplete="off" class="upi-modal-textarea"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cardPoolImportCancel">取消</button>
+        <button type="button" class="btn primary" id="cardPoolImportConfirm">导入</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="cardPoolPaypalModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolPaypalModalTitle">
+    <div class="modal-main">
+      <h3 id="cardPoolPaypalModalTitle">添加 PayPal 账号</h3>
+      <form id="cardPoolPaypalForm" class="upi-modal-form">
+        <label><span>手机号（带国家码）</span><input id="cardPoolPaypalPhone" type="text" autocomplete="off" placeholder="+10000000001" required></label>
+        <label><span>OTP 短信 API</span><input id="cardPoolPaypalSmsUrl" type="text" autocomplete="off" placeholder="http://.../get_sms?key=..."></label>
+        <label><span>备注</span><input id="cardPoolPaypalNotes" type="text" autocomplete="off"></label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="cardPoolPaypalModalCancel">取消</button>
+          <button type="submit" class="btn primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="cardPoolManualPayModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolManualPayTitle">
+    <div class="modal-main">
+      <h3 id="cardPoolManualPayTitle">手动支付</h3>
+      <form id="cardPoolManualPayForm" class="upi-modal-form">
+        <label><span>支付链接</span><input id="cardPoolManualPayLink" type="text" autocomplete="off" placeholder="https://checkout.stripe.com/... 或 UPI 提取结果链接" required></label>
+        <label><span>支付方式</span>
+          <select id="cardPoolManualPayMethod">
+            <option value="card">银行卡（卡池）</option>
+            <option value="paypal">PayPal（账号池）</option>
+          </select>
+        </label>
+        <label><span>邮箱（可选，便于溯源）</span><input id="cardPoolManualPayEmail" type="text" autocomplete="off"></label>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="cardPoolManualPayCancel">取消</button>
+          <button type="submit" class="btn primary">提交支付</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="cardPoolJobLogModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card upi-modal-card upi-task-log-modal" role="dialog" aria-modal="true" aria-labelledby="cardPoolJobLogTitle">
+    <div class="modal-main">
+      <div class="upi-modal-head"><h3 id="cardPoolJobLogTitle">支付任务日志</h3><button type="button" class="upi-close-button" id="cardPoolJobLogClose" title="关闭" aria-label="关闭">×</button></div>
+      <pre class="upi-task-log-pre mono" id="cardPoolJobLogBody"></pre>
+    </div>
+  </div>
+</div>
+
+<div id="credentialModal" class="modal-backdrop credential-modal hidden" aria-hidden="true">
+  <div class="modal-card credential-modal-card" role="dialog" aria-modal="true" aria-labelledby="credentialModalTitle">
+    <div class="modal-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <circle cx="7.5" cy="15.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="m10.7 12.3 7.8-7.8m-2 2 2 2m-4-4 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="modal-main">
+      <h3 id="credentialModalTitle" data-i18n="auth.credentials.set_title">设置登录账号</h3>
+      <form id="credentialForm" class="credential-form" novalidate>
+        <div class="credential-grid">
+          <label class="credential-field credential-username-field">
+            <span data-i18n="auth.password.username">用户名</span>
+            <input id="credentialUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" required>
+          </label>
+          <label class="credential-field">
+            <span data-i18n="auth.password.password">密码</span>
+            <input id="credentialPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+          </label>
+          <label class="credential-field">
+            <span data-i18n="auth.credentials.confirm_password">确认密码</span>
+            <input id="credentialConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
+          </label>
+        </div>
+        <div id="credentialStatus" class="credential-status" role="status" hidden></div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="credentialCancel" data-i18n="common.cancel">取消</button>
+          <button type="button" class="btn" id="credentialSkip" data-i18n="auth.credentials.skip">暂时跳过</button>
+          <button type="submit" class="btn primary" id="credentialSave" data-i18n="auth.credentials.save">保存并启用</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/js/i18n.js?v=20260716-i18n-foundation" defer></script>
+<script src="/static/js/state.js" defer></script>
+<script src="/static/js/api.js?v=20260708-local-session-cookie" defer></script>
+<script src="/static/js/ui.js?v=20260726-full-pool-export" defer></script>
+<script src="/static/js/guide_steps.js?v=20260717-register-limits" defer></script>
+<script src="/static/js/guide.js?v=20260624-api-otp-mail" defer></script>
+<script src="/static/js/pages/version.js?v=20260804-update-failure-feedback" defer></script>
+<script src="/static/js/pages/dashboard.js?v=20260717-nonoverlap-polling" defer></script>
+<script src="/static/js/pages/register.js?v=20260717-register-polling" defer></script>
+<script src="/static/js/pages/accounts.js?v=20260807-trial-eligibility" defer></script>
+<script src="/static/js/pages/automation_tasks.js?v=20260807-trial-eligibility" defer></script>
+<script src="/static/js/pages/email_pool.js?v=20260726-email-pool-server-pagination" defer></script>
+<script src="/static/js/pages/codex.js?v=20260704-token-refresh-delete" defer></script>
+<script src="/static/js/pages/config_sms.js?v=20260714-pool-bulk-management" defer></script>
+<script src="/static/js/pages/config.js?v=20260807-trial-check-switch" defer></script>
+<script src="/static/js/pages/upi.js?v=20260728-upi-task-logs" defer></script>
+<script src="/static/js/pages/cardpool.js?v=20260815-card-pool" defer></script>
+<script src="/static/js/system_metrics.js?v=20260718-runtime-worker-recommendation" defer></script>
+<script src="/static/js/credentials.js?v=20260717-credential-flow" defer></script>
+<script src="/static/js/app.js?v=20260718-auth-ready-version-check" defer></script>
+</body>
+</html>

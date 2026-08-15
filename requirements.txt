@@ -1,0 +1,13 @@
+# 核心（协议注册链路必需）
+curl_cffi>=0.15.0
+pyotp>=2.9.0
+flask>=3.0.0
+requests>=2.31.0
+pycryptodome>=3.23.0
+python-dotenv>=1.0.0
+
+# 可选：浏览器驱动（RoxyBrowser / CloakBrowser / Playwright 注册链路）
+selenium>=4.20.0
+playwright>=1.49.0
+playwright-stealth>=2.0.3
+cloakbrowser[geoip]>=0.4.10

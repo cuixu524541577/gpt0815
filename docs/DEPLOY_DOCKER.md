@@ -23,6 +23,11 @@ vim .env            # 填 ADMIN_PASSWORD（强密码）、代理、接码等
 mkdir -p data codex_accounts backups 注册日志
 touch 用于注册的邮箱.txt 注册成功的邮箱.txt 注册成功的token.txt
 
+# 3.5 关键一步：目录权限给容器内用户（uid 10001）
+# 容器以非 root 运行，挂载目录必须是 10001 可写，否则启动即崩溃重启
+chown -R 10001:10001 data codex_accounts backups 注册日志 config \
+  用于注册的邮箱.txt 注册成功的邮箱.txt 注册成功的token.txt
+
 # 4. 构建并启动
 docker compose up -d --build
 

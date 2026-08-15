@@ -145,6 +145,18 @@ for _ in range(5):
 r = c.post("/api/auth/password/login", json={"username": "smoke", "password": "SmokeTest@123456"})
 check("5 次失败后锁定 429", r.status_code == 429)
 
+# 5.5 代理测试格式（socks5 解析 + 非法格式拒绝）
+r = c.post("/api/proxy/test", json={"proxies": ["socks5://127.0.0.1:9999", "ftp://1.2.3.4:21", "not a proxy"], "timeout_s": 1})
+_rows = (r.get_json() or {}).get("results", [])
+_ok = r.status_code == 200 and len(_rows) == 3
+_socks = next((x for x in _rows if "socks5" in str(x.get("proxy") or "")), {})
+_ftp = next((x for x in _rows if "ftp" in str(x.get("proxy") or "")), {})
+_bad = next((x for x in _rows if "not a proxy" in str(x.get("proxy") or "")), {})
+check("代理测试 200 且 3 项结果", _ok)
+check("socks5 格式被解析（连接失败而非格式无效）", "地址格式无效" not in str(_socks.get("error") or ""))
+check("ftp 协议判格式无效", "地址格式无效" in str(_ftp.get("error") or ""))
+check("非法地址判格式无效", "地址格式无效" in str(_bad.get("error") or ""))
+
 # 6. 卡池支付（备份配置与数据，测完恢复）
 import time as _time
 import shutil as _shutil

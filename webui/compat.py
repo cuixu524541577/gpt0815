@@ -452,6 +452,39 @@ def _resolve_identities(identities: list) -> list:
     return out
 
 
+
+# ---------------- 代理地址解析（/api/proxy/test 复用） ----------------
+# 支持 http/https/socks4/socks5/socks5h 前缀、带认证（http://user:pass@host:port）、
+# IPv6（[::1]:7897）与裸 host:port。
+_PROXY_DEFAULT_PORTS = {"http": 80, "https": 443, "socks4": 1080, "socks5": 1080, "socks5h": 1080}
+
+
+def _parse_proxy_address(raw):
+    """解析代理地址 → (host, port, scheme, proxy_url)；不合法返回 None。
+
+    支持：http(s)://、socks4/5/socks5h://（可带 user:pass@）、
+    [IPv6]:port、裸 host:port。统一用 urlparse 处理（"//" 前缀技巧）。"""
+    from urllib.parse import urlparse as _up
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        if "://" in text:
+            parsed = _up(text)
+            scheme = (parsed.scheme or "").lower()
+            if scheme not in _PROXY_DEFAULT_PORTS:
+                return None
+        else:
+            parsed = _up("//" + text)  # 裸地址按 http 解析
+            scheme = "http"
+        if not parsed.hostname or any(ch.isspace() for ch in parsed.hostname):
+            return None  # 含空格等非法字符 → 格式无效
+        port = parsed.port or _PROXY_DEFAULT_PORTS[scheme]
+        return parsed.hostname, int(port), scheme, text
+    except ValueError:
+        return None
+
+
 # ============================================================
 # 注册入口
 # ============================================================
@@ -2429,33 +2462,98 @@ def register_compat_routes(app) -> None:
         return jsonify({"ok": True, "updated": result.get("updated", []), "message": "已保存（立即生效）"})
 
     # ---------------- 代理/中继测试 ----------------
+    def _proxy_http_get(proxy_url, url, timeout):
+        """通过代理发 GET（curl_cffi 原生支持 socks5），失败返回 None。"""
+        s = None
+        try:
+            from curl_cffi import requests as _curl
+            s = _curl.Session(impersonate="chrome124")
+            resp = s.get(url, proxies={"http": proxy_url, "https": proxy_url}, timeout=timeout)
+            return resp
+        except Exception:
+            return None
+        finally:
+            try:
+                if s is not None:
+                    s.close()
+            except Exception:
+                pass
+
     @app.post("/api/proxy/test")
     def api_proxy_test():
         data = _json_body()
         proxies = data.get("proxies") or []
-        timeout_s = float(data.get("timeout_s") or 5)
+        try:
+            timeout_s = float(data.get("timeout_s") or 5)
+        except (TypeError, ValueError):
+            timeout_s = 5.0
+        timeout_s = max(1.0, min(30.0, timeout_s))
+        expected_country = str(data.get("expected_country") or "").strip().upper()
+        started_at = time.time()
         results = []
-        for proxy in proxies[:50]:
-            proxy = str(proxy).strip()
-            if not proxy:
+        for idx, proxy in enumerate(proxies[:50], start=1):
+            parsed = _parse_proxy_address(proxy)
+            if parsed is None:
+                results.append({"index": idx, "proxy": str(proxy).strip(), "ok": False,
+                                "error": "地址格式无效（支持 http://、socks5://、host:port 等）"})
                 continue
-            host, port = None, None
-            m = re.match(r"^(?:https?://)?([^:/]+)(?::(\d+))?$", proxy)
-            if m:
-                host, port = m.group(1), int(m.group(2) or 80)
-            if not host:
-                results.append({"proxy": proxy, "ok": False, "error": "地址格式无效"})
-                continue
+            host, port, scheme, proxy_url = parsed
+            row = {"index": idx, "proxy": str(proxy).strip(), "scheme": scheme, "ok": False,
+                   "error": None, "latency_ms": 0, "elapsed_ms": 0}
+            per_start = time.time()
+            # 1) TCP 连通 + 实测延迟
             try:
                 s = socket.create_connection((host, port), timeout=timeout_s)
                 s.close()
-                results.append({"proxy": proxy, "ok": True, "latency_ms": 0})
+                row["latency_ms"] = round((time.time() - per_start) * 1000, 1)
             except Exception as exc:
-                results.append({"proxy": proxy, "ok": False, "error": type(exc).__name__})
+                row["error"] = f"连接失败: {type(exc).__name__}"
+                row["elapsed_ms"] = round((time.time() - per_start) * 1000, 1)
+                results.append(row)
+                continue
+            # 2) 深度验证：经代理取出口 IP + 地区（ipwho.is 免费 https，一次返回）
+            geo_resp = _proxy_http_get(proxy_url, "https://ipwho.is/", timeout_s)
+            if geo_resp is not None:
+                try:
+                    geo = geo_resp.json()
+                    row["ip"] = geo.get("ip")
+                    row["geo_country"] = geo.get("country")
+                    row["geo_country_code"] = geo.get("country_code")
+                    row["geo_region"] = geo.get("region")
+                    row["geo_city"] = geo.get("city")
+                except Exception:
+                    row["geo_error"] = "地区解析失败"
+            else:
+                # fallback：只拿出口 IP
+                ip_resp = _proxy_http_get(proxy_url, "https://api.ipify.org?format=json", timeout_s)
+                if ip_resp is not None:
+                    try:
+                        row["ip"] = ip_resp.json().get("ip")
+                    except Exception:
+                        pass
+                else:
+                    row["geo_error"] = "代理不可用（深度请求失败）"
+            # 3) ChatGPT 可达性
+            chat_resp = _proxy_http_get(proxy_url, "https://chatgpt.com/backend-api/me", timeout_s)
+            if chat_resp is not None:
+                row["chatgpt_status_code"] = chat_resp.status_code
+            # 判定：TCP 通且至少一个深度请求成功才算可用
+            deep_ok = bool(row.get("ip") or row.get("chatgpt_status_code") is not None)
+            row["ok"] = deep_ok
+            if expected_country and row.get("geo_country_code"):
+                row["expected_country_match"] = str(row["geo_country_code"]).upper() == expected_country
+            if not deep_ok and not row.get("geo_error"):
+                row["geo_error"] = "深度请求失败"
+            row["elapsed_ms"] = round((time.time() - per_start) * 1000, 1)
+            results.append(row)
         return jsonify({
             "ok": True, "total": len(results),
             "success": sum(1 for r in results if r.get("ok")),
             "failed": sum(1 for r in results if not r.get("ok")),
+            "elapsed_ms": round((time.time() - started_at) * 1000, 1),
+            "target_url": "https://chatgpt.com/backend-api/me",
+            "transport_url": "https://ipwho.is/",
+            "note": f"每代理按 TCP 连通 + 出口 IP/地区 + ChatGPT 可达性深度检测（超时 {timeout_s:g}s）",
             "results": results,
         })
 

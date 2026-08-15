@@ -251,8 +251,29 @@ def _pool_expired(pool: dict) -> bool:
         return True
 
 
+def _mode() -> str:
+    return str(_cfg("PROXY_DYNAMIC_MODE", "api") or "api").strip().lower()
+
+
+def manual_list() -> list[str]:
+    """手动模式：从配置读取代理列表。"""
+    raw = _cfg("PROXY_DYNAMIC_MANUAL_LIST", None)
+    lines = raw if isinstance(raw, list) else str(raw or "").splitlines()
+    out = []
+    for line in lines:
+        entry = _normalize_entry(line)
+        if entry:
+            out.append(entry)
+    return out
+
+
 def fetch_dynamic_proxies(timeout: float = 20.0) -> list[str]:
-    """调用厂商 API 拉取代理列表（不做持久化）。失败抛异常。"""
+    """按模式拉取代理列表（manual=手动列表，api=厂商 API）。失败抛异常。"""
+    if _mode() == "manual":
+        parsed = manual_list()
+        if not parsed:
+            raise RuntimeError("PROXY_DYNAMIC_MODE=manual 但手动代理列表为空（请填写 PROXY_DYNAMIC_MANUAL_LIST）")
+        return parsed
     url = api_url()
     if not url:
         raise RuntimeError("PROXY_DYNAMIC_API_URL 未配置")
@@ -308,8 +329,8 @@ def refresh_pool() -> dict:
 
 
 def dynamic_proxies() -> list[str]:
-    """读取动态池；过期时尝试刷新（失败返回旧列表）。"""
-    if not enabled() or not api_url():
+    """读取动态池；过期时尝试刷新（失败返回旧列表）。manual 模式无需 API 地址。"""
+    if not enabled():
         return []
     pool = _read_pool()
     if _pool_expired(pool):
@@ -341,6 +362,7 @@ def pool_summary() -> dict:
     pool = _read_pool()
     return {
         "enabled": enabled(),
+        "mode": _mode(),
         "api_url": api_url() or "",
         "count": len(pool.get("proxies", []) or []),
         "fetched_at": pool.get("fetched_at"),

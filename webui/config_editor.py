@@ -184,7 +184,15 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "PROXY_DYNAMIC_ENABLED", "file": "proxy.py", "type": "bool", "group": "代理池",
-        "label": "启用动态代理池", "help": "从厂商 API 拉取住宅代理列表，与静态池合并轮换（见下方 API 地址）",
+        "label": "启用动态代理池", "help": "动态住宅代理池（来源二选一：API 拉取 或 手动粘贴），注册任务优先从动态池随机取 IP",
+    },
+    {
+        "key": "PROXY_DYNAMIC_MODE", "file": "proxy.py", "type": "str", "group": "代理池",
+        "label": "动态池来源", "help": "api=从下方 API 地址自动拉取；manual=使用下方手动代理列表（二选一）",
+    },
+    {
+        "key": "PROXY_DYNAMIC_MANUAL_LIST", "file": "proxy.py", "type": "list_str_multiline", "group": "代理池",
+        "label": "动态池手动代理列表", "help": "MODE=manual 时使用；每行一个代理，格式同「代理池」；不走 API",
     },
     {
         "key": "PROXY_DYNAMIC_API_URL", "file": "proxy.py", "type": "str", "group": "代理池",

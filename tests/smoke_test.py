@@ -159,8 +159,8 @@ check("非法地址判格式无效", "地址格式无效" in str(_bad.get("error
 
 # 5.6 动态代理池（配置字段 + 端点）
 _dyn_fields = {f["key"] for f in c.get("/api/config").get_json()}
-check("动态代理配置字段齐全", {"PROXY_DYNAMIC_ENABLED", "PROXY_DYNAMIC_API_URL",
-      "PROXY_DYNAMIC_API_AUTH", "PROXY_DYNAMIC_REFRESH_MINUTES", "PROXY_DYNAMIC_MAX_POOL"} <= _dyn_fields)
+check("动态代理配置字段齐全", {"PROXY_DYNAMIC_ENABLED", "PROXY_DYNAMIC_MODE", "PROXY_DYNAMIC_MANUAL_LIST",
+      "PROXY_DYNAMIC_API_URL", "PROXY_DYNAMIC_API_AUTH", "PROXY_DYNAMIC_REFRESH_MINUTES", "PROXY_DYNAMIC_MAX_POOL"} <= _dyn_fields)
 check("动态代理状态端点", c.get("/api/proxy/dynamic").status_code == 200)
 
 # 6. 卡池支付（备份配置与数据，测完恢复）

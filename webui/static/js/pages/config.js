@@ -109,7 +109,8 @@
         { url: PROXY_POOL_PORTAL_2_URL, label: '打开代理官网2' },
       ],
       keys: ['PROXY_MODE', 'PROXY_EGRESS_COUNTRY', 'PROXY_POOL',
-             'PROXY_DYNAMIC_ENABLED', 'PROXY_DYNAMIC_API_URL', 'PROXY_DYNAMIC_API_AUTH',
+             'PROXY_DYNAMIC_ENABLED', 'PROXY_DYNAMIC_MODE', 'PROXY_DYNAMIC_MANUAL_LIST',
+             'PROXY_DYNAMIC_API_URL', 'PROXY_DYNAMIC_API_AUTH',
              'PROXY_DYNAMIC_REFRESH_MINUTES', 'PROXY_DYNAMIC_MAX_POOL',
              'REGISTER_PROXY_POOL', 'CODEX_PROXY_POOL'],
     },
@@ -960,7 +961,7 @@
       <div class="proxy-tools" style="margin-top:14px">
         <div>
           <strong>动态住宅代理池</strong>
-          <p>从厂商 API 自动拉取代理列表，与静态池合并轮换（配置见上方「启用动态代理池」等字段）。支持 Oxylabs / Webshare / 通用提取 API。</p>
+          <p>动态池来源二选一：<b>api</b> = 从厂商 API 自动拉取（Oxylabs / Webshare / 通用提取 API）；<b>manual</b> = 手动粘贴代理列表。注册任务优先从动态池随机取 IP，静态「代理池」作兜底。</p>
         </div>
         <div class="proxy-test-actions">
           <button type="button" class="btn" id="proxyDynamicStatus">查看状态</button>

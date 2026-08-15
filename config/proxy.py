@@ -54,10 +54,18 @@ PLAN_CHECK_JITTER = 0.3
 # 网关型（固定地址+动态用户名，如 BrightData/IPRoyal）直接写进 PROXY_POOL 即可。
 # ============================================================
 
-# 总开关：启用动态代理池
+# 总开关：启用动态代理池（二选一来源，见 PROXY_DYNAMIC_MODE）
 PROXY_DYNAMIC_ENABLED: bool = False
 
-# 提取 API 地址。示例：
+# 动态池来源模式（二选一）：
+#   api    = 从 PROXY_DYNAMIC_API_URL 自动拉取（Oxylabs/Webshare/通用提取 API）
+#   manual = 使用 PROXY_DYNAMIC_MANUAL_LIST 手动粘贴的代理列表（不走 API）
+PROXY_DYNAMIC_MODE: str = "api"
+
+# 手动模式下的代理列表（每行一个，与「代理池」格式相同；仅在 MODE=manual 时使用）
+PROXY_DYNAMIC_MANUAL_LIST: list = []
+
+# 提取 API 地址（MODE=api 时使用）。示例：
 #   Oxylabs：https://proxy.oxylabs.io/key/{API_KEY}
 #   Webshare：https://proxy.webshare.io/api/v2/proxy/list/?page=1&page_size=25
 #   通用提取：https://api.proxy-service.com/get?key=YOUR_API_KEY
@@ -92,6 +100,8 @@ PROXY = pick_proxy()
 apply_env_overrides(globals(), {
     'PROXY_POOL': 'list_str_multiline',
     'PROXY_DYNAMIC_ENABLED': 'bool',
+    'PROXY_DYNAMIC_MODE': 'str',
+    'PROXY_DYNAMIC_MANUAL_LIST': 'list_str_multiline',
     'PROXY_DYNAMIC_API_URL': 'str',
     'PROXY_DYNAMIC_API_AUTH': 'str',
     'PROXY_DYNAMIC_REFRESH_MINUTES': 'int',

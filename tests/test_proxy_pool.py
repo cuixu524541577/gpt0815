@@ -113,3 +113,31 @@ def test_summary_shape(tmp_path, monkeypatch):
     s = pp.pool_summary()
     assert set(s) >= {"enabled", "api_url", "count", "fetched_at", "expired", "refresh_minutes"}
     assert s["count"] == 0
+
+
+# ------------------------------------------------------------
+# 手动模式（二选一：api / manual）
+# ------------------------------------------------------------
+def test_manual_mode_parses_config_list(monkeypatch):
+    monkeypatch.setattr(pp, "_cfg", lambda name, default=None: {
+        "PROXY_DYNAMIC_ENABLED": "true",
+        "PROXY_DYNAMIC_MODE": "manual",
+        "PROXY_DYNAMIC_MANUAL_LIST": ["1.2.3.4:8080", "socks5://5.6.7.8:1080", "bad line", "9.9.9.9:9999:user:pass"],
+        "PROXY_DYNAMIC_API_URL": "",
+        "PROXY_DYNAMIC_REFRESH_MINUTES": 30,
+        "PROXY_DYNAMIC_MAX_POOL": 200,
+    }.get(name, default))
+    proxies = pp.fetch_dynamic_proxies()
+    assert proxies == ["1.2.3.4:8080", "socks5://5.6.7.8:1080", "http://user:pass@9.9.9.9:9999"]
+
+
+def test_manual_mode_empty_list_raises(monkeypatch):
+    monkeypatch.setattr(pp, "_cfg", lambda name, default=None: {
+        "PROXY_DYNAMIC_ENABLED": "true",
+        "PROXY_DYNAMIC_MODE": "manual",
+        "PROXY_DYNAMIC_MANUAL_LIST": [],
+        "PROXY_DYNAMIC_API_URL": "",
+    }.get(name, default))
+    import pytest as _pt
+    with _pt.raises(RuntimeError, match="手动代理列表为空"):
+        pp.fetch_dynamic_proxies()

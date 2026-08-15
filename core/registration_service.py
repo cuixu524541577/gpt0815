@@ -690,6 +690,42 @@ def cancel_pending_jobs() -> int:
     return cancelled
 
 
+def reconcile_stale_jobs() -> int:
+    """启动时清理上次进程遗留的 running 任务。
+
+    进程已死则不可能有任务还在跑：一律标记 failed（可手动重试），
+    并回收未进入注册成功库的邮箱，避免池子里的账号被白占。
+    """
+    now_iso = datetime.now().isoformat(timespec="seconds")
+    jobs = db.list_jobs(limit=1000)
+    fixed = 0
+    for job in jobs:
+        if job.get("status") != "running":
+            continue
+        job_id = int(job["id"])
+        email = str(job.get("email") or "").strip()
+        db.update_job(
+            job_id,
+            status="failed",
+            error="进程重启中断，任务已终止（可重试）",
+            completed_at=now_iso,
+        )
+        if email:
+            try:
+                registered = any(
+                    str(a.get("email") or "") == email for a in db._load_accounts()
+                )
+                if not registered:
+                    from core.outlook_client import release_account
+                    release_account(email, status="available", note="进程重启中断，邮箱已回收")
+            except Exception:
+                logger.warning("[Service] 回收中断任务邮箱 %s 失败", email, exc_info=True)
+        fixed += 1
+    if fixed:
+        logger.info(f"[Service] 启动清理：{fixed} 个中断任务已标记失败")
+    return fixed
+
+
 def resume_pending_jobs() -> int:
     """把 pending/queued 状态的任务重新提交到线程池（进程重启后恢复队列用）。
 

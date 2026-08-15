@@ -120,10 +120,14 @@ def main() -> None:
 
     _startup_selfcheck()
 
-    # 重启后恢复未完成的注册队列（pending/queued 重新提交到线程池），
-    # 让"排队模式"跨进程重启依然生效。
+    # 重启后清理中断任务（running 遗留）并恢复未完成的注册队列，
+    # 让"排队模式"跨进程重启依然生效，且不会出现卡死的 running 占位。
     try:
+        from core.registration_service import reconcile_stale_jobs
         from core.registration_service import resume_pending_jobs
+        cleaned = reconcile_stale_jobs()
+        if cleaned:
+            logger.info(f"已标记 {cleaned} 个进程中断任务为失败")
         resumed = resume_pending_jobs()
         if resumed:
             logger.info(f"已恢复 {resumed} 个排队注册任务")

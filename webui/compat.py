@@ -483,8 +483,16 @@ def _parse_proxy_address(raw):
             scheme = "http"
         if not parsed.hostname or any(ch.isspace() for ch in parsed.hostname):
             return None  # 含空格等非法字符 → 格式无效
-        port = parsed.port or _PROXY_DEFAULT_PORTS[scheme]
-        return parsed.hostname, int(port), scheme, text
+        explicit_port = parsed.port  # None = URL 未写端口
+        if explicit_port is None:
+            if scheme.startswith("socks"):
+                return None  # SOCKS 必须显式端口，避免误连错误服务
+            port = _PROXY_DEFAULT_PORTS[scheme]
+        else:
+            port = int(explicit_port)
+        if not 1 <= port <= 65535:
+            return None  # 端口越界 → 格式无效
+        return parsed.hostname, port, scheme, text
     except ValueError:
         return None
 

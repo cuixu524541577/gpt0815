@@ -26,6 +26,17 @@ _GEO_CACHE_LOCK = threading.Lock()
 _CF_COOKIE_NAMES = ("cf_clearance", "__cf_bm", "__cfseq", "cf_chl_rc_i", "cf_chl_rc_ni", "cf_chl_rc_m")
 
 
+def normalize_proxy_url(url: str) -> str:
+    """socks5:// → socks5h://：域名交给代理侧解析。
+
+    本机解析域名时如果 DNS 被污染，TLS 握手会收到明文响应
+    （curl 报 WRONG_VERSION_NUMBER）；socks5h 让代理服务器解析，避开这个问题。
+    """
+    if url and url.startswith("socks5://"):
+        return "socks5h://" + url[len("socks5://"):]
+    return url
+
+
 class BrowserSession:
     """
     模拟 Chrome 浏览器的 HTTP 会话管理器。
@@ -79,8 +90,8 @@ class BrowserSession:
         # 设置代理
         if self.proxy:
             self.session.proxies = {
-                "http": self.proxy,
-                "https": self.proxy,
+                "http": normalize_proxy_url(self.proxy),
+                "https": normalize_proxy_url(self.proxy),
             }
 
         # 设置超时

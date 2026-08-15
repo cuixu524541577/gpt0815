@@ -20,7 +20,9 @@
 配置开关：PROXY_DYNAMIC_ENABLED / PROXY_DYNAMIC_API_URL / PROXY_DYNAMIC_API_AUTH /
           PROXY_DYNAMIC_REFRESH_MINUTES / PROXY_DYNAMIC_MAX_POOL
 
-代理选择：pick_proxy() 优先从动态池随机取（未过期），动态池为空/未配置时回退静态 PROXY_POOL。
+代理选择：pick_proxy() 优先从动态池取（未过期），动态池为空/未配置时回退静态 PROXY_POOL。
+动态池按「最近最少使用」轮换（last_used 落盘），保证连续任务不会重复抽中同一个 IP；
+注册任务返回 403（IP 被封）时调用 blacklist_proxy() 临时封禁该代理，后续 pick 自动跳过。
 """
 from __future__ import annotations
 
@@ -36,6 +38,10 @@ logger = logging.getLogger(__name__)
 
 _POOL_FILE = Path(__file__).resolve().parent.parent / "data" / "proxy_pool.json"
 _LOCK = threading.RLock()
+_PICK_LOCK = threading.RLock()
+
+# 临时封禁的代理：{url: 解禁时间戳}（403/IP 被封等，进程内生效）
+_BLACKLIST: dict[str, float] = {}
 
 # JSON 容器字段（递归查找代理数组）
 _JSON_CONTAINER_KEYS = ("proxies", "proxy_list", "proxylist", "results", "items", "list", "data", "proxyList")
@@ -361,19 +367,65 @@ def dynamic_proxies() -> list[str]:
 
 
 def pick_proxy() -> str:
-    """动态池优先随机取；动态池为空/未启用时回退静态 PROXY_POOL。"""
+    """动态池优先取（最近最少使用轮换 + 跳过临时封禁）；空时回退静态 PROXY_POOL。
+
+    静态池同样跳过临时封禁的条目；全部被封时退回原列表随机取，
+    避免「宁可直连」——直连注册风险更高，宁可再试一次被封 IP。
+    """
     try:
         dyn = dynamic_proxies()
         if dyn:
-            return random.choice(dyn)
+            return _pick_from_pool(dyn)
     except Exception:
         logger.exception("[动态代理] 读取动态池异常，回退静态池")
     try:
         from config import proxy as _proxy_cfg
         pool = getattr(_proxy_cfg, "PROXY_POOL", None) or []
-        return random.choice(pool) if pool else ""
+        usable = [p for p in pool if not _is_blacklisted(str(p))]
+        candidates = usable or pool
+        return random.choice(candidates) if candidates else ""
     except Exception:
         return ""
+
+
+def _pick_from_pool(entries: list[str]) -> str:
+    """从动态池选最近最少使用的代理（随机打破平局），并把 last_used 写回池文件。"""
+    with _PICK_LOCK:
+        pool = _read_pool()
+        last_used = pool.get("last_used") or {}
+        if not isinstance(last_used, dict):
+            last_used = {}
+        usable = [e for e in entries if not _is_blacklisted(e)]
+        candidates = usable or entries  # 全部被封时用原列表兜底
+        chosen = min(candidates, key=lambda e: (last_used.get(e, 0.0), random.random()))
+        last_used[chosen] = time.time()
+        pool["last_used"] = last_used
+        _write_pool(pool)
+        return chosen
+
+
+def blacklist_proxy(url: str, ttl: int = 600) -> None:
+    """临时封禁一个代理（如注册第一步返回 403 = IP 已被 OpenAI 拉黑）。
+
+    ttl 秒内 pick_proxy 会跳过它；到期自动解禁。
+    """
+    url = str(url or "").strip()
+    if not url:
+        return
+    with _PICK_LOCK:
+        _BLACKLIST[url] = time.time() + max(1, ttl)
+    logger.warning("[动态代理] 已临时封禁代理（%ds）：%s", ttl, url)
+
+
+def _is_blacklisted(url: str) -> bool:
+    with _PICK_LOCK:
+        expire = _BLACKLIST.get(url)
+        if expire is None:
+            return False
+        if expire < time.time():
+            _BLACKLIST.pop(url, None)
+            return False
+        return True
 
 
 def pool_summary() -> dict:

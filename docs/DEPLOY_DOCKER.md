@@ -98,3 +98,6 @@ docker compose up -d --build
 - 健康检查一直 starting：`docker inspect gpt-register-console` 看状态
 - 配置页保存不生效：config/ 卷挂载权限问题（`chown -R 10001:10001 config data`）
 - 账号全部被吊销：单 IP 批量注册导致——必须配置多代理池轮换（见 docs/ANTI-BOT.md）
+- 任务秒挂 `HTTP 403`（第一步 providers 被拒）：出口 IP 被 OpenAI 拉黑。系统会自动把该
+  代理临时封禁并换下一个重试（最多 3 次）；请在「代理配置」页确认动态池里**有多条**代理
+  （池数量 > 5），提取 API 的 num 参数不要设成 1，否则池里永远只有一个 IP 可轮换

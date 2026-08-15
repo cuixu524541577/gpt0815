@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MAX_WORKERS = 4
 _MIN_MAX_WORKERS = 1
 _MAX_MAX_WORKERS = 16
+
+# 注册第一步收到 HTTP 403（出口 IP 被 OpenAI/Cloudflare 拉黑）时的换代理重试次数
+_PROXY_403_RETRIES = 3
 _executor: ThreadPoolExecutor | None = None
 _executor_workers = _DEFAULT_MAX_WORKERS
 _executor_generation = 0
@@ -288,6 +291,45 @@ def _sleep_task_delay() -> None:
         pass
 
 
+def _run_registration_with_retry(
+    run_fn,
+    email: str,
+    name: str,
+    birthday: str,
+    log_logger=None,
+    job_id=None,
+):
+    """执行注册；第一步 403（出口 IP 被拉黑）时换代理重试，最多 _PROXY_403_RETRIES 次。
+
+    被封代理进临时黑名单（pick_proxy 会自动跳过），避免后续任务再撞上同一个 IP。
+    """
+    from core.proxy_pool import pick_proxy as _pick_proxy
+    from core.proxy_pool import blacklist_proxy as _blacklist_proxy
+
+    last_error: Exception | None = None
+    for attempt in range(1, _PROXY_403_RETRIES + 1):
+        proxy = _pick_proxy()
+        try:
+            return run_fn(email=email, name=name, birthday=birthday, proxy=proxy)
+        except Exception as exc:
+            last_error = exc
+            text = str(exc)
+            is_403 = "HTTP Error 403" in text or "HTTP 403" in text
+            if is_403 and attempt < _PROXY_403_RETRIES:
+                _blacklist_proxy(proxy)
+                if log_logger is not None:
+                    log_logger.warning(
+                        f"[Job {job_id}] 代理 {proxy} 返回 403（IP 可能被封），"
+                        f"换代理重试 {attempt + 1}/{_PROXY_403_RETRIES}"
+                    )
+                continue
+            if is_403 and log_logger is not None:
+                log_logger.error(
+                    f"[Job {job_id}] 代理 {proxy} 连续 403，{_PROXY_403_RETRIES} 个代理均被拦截"
+                )
+            raise last_error
+
+
 def _run_one_job(job_id: int, log_file: str) -> None:
     """单任务入口（线程池里跑这个）。"""
     log_logger = logging.getLogger(__name__)
@@ -315,7 +357,10 @@ def _run_one_job(job_id: int, log_file: str) -> None:
             email, name, birthday = _prepare_registration_args()
             db.update_job(job_id, email=email)
             check_stop_requested()
-            result = run_registration(email=email, name=name, birthday=birthday)
+            result = _run_registration_with_retry(
+                run_registration, email, name, birthday,
+                log_logger=log_logger, job_id=job_id,
+            )
             if is_stop_requested(job_id):
                 _release_unconsumed_job_email(email, "用户手动停止")
                 db.update_job(

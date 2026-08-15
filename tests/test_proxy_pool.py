@@ -213,3 +213,42 @@ def test_whitelist_error_message(monkeypatch):
     monkeypatch.setattr(_req, "get", lambda *a, **k: FakeResp())
     with pytest.raises(RuntimeError, match="白名单"):
         pp.fetch_dynamic_proxies()
+
+
+# ------------------------------------------------------------
+# 轮换与封禁（403 换代理）
+# ------------------------------------------------------------
+def test_pick_from_pool_lru_rotation(tmp_path, monkeypatch):
+    """最近最少使用轮换：连续三次两两不同、首尾相同（不会连续抽中同一个）。"""
+    import core.proxy_pool as pp
+    monkeypatch.setattr(pp, "_POOL_FILE", tmp_path / "pool.json")
+    pp._write_pool({"fetched_at": "2026-08-15T00:00:00", "proxies": ["a", "b"]})
+    picks = [pp._pick_from_pool(["a", "b"]) for _ in range(3)]
+    assert picks[0] != picks[1]
+    assert picks[1] != picks[2]
+    assert picks[0] == picks[2]
+
+
+def test_blacklist_skips_proxy_in_dynamic_pool(tmp_path, monkeypatch):
+    import core.proxy_pool as pp
+    monkeypatch.setattr(pp, "_POOL_FILE", tmp_path / "pool.json")
+    pp._write_pool({"fetched_at": "2026-08-15T00:00:00", "proxies": ["a", "b"]})
+    pp.blacklist_proxy("b")
+    try:
+        picks = [pp._pick_from_pool(["a", "b"]) for _ in range(3)]
+        assert picks == ["a", "a", "a"]
+    finally:
+        pp._BLACKLIST.clear()
+
+
+def test_pick_proxy_static_skips_blacklisted(monkeypatch):
+    import core.proxy_pool as pp
+    import config.proxy as cp
+    monkeypatch.setattr(pp, "dynamic_proxies", lambda: [])
+    monkeypatch.setattr(cp, "PROXY_POOL", ["a", "b"])
+    pp.blacklist_proxy("b")
+    try:
+        picks = [pp.pick_proxy() for _ in range(5)]
+        assert all(p == "a" for p in picks)
+    finally:
+        pp._BLACKLIST.clear()

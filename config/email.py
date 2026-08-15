@@ -88,7 +88,7 @@ GPTMAIL_API_KEY = env_str("GPTMAIL_API_KEY", "")
 # ============================================================
 
 # Worker API 根地址，例如 https://mail.example.com
-CLOUDFLARE_API_BASE = env_str("CLOUDFLARE_API_BASE", "")
+CLOUDFLARE_API_BASE = ""
 
 # 匿名模式可留空；admin 模式填 ADMIN_PASSWORD
 CLOUDFLARE_API_KEY = env_str("CLOUDFLARE_API_KEY", "")
@@ -129,7 +129,7 @@ MAIL_NEST_PROJECT_CODE = "chatgpt001"
 CLOUDMAIL_API_BASE = ""
 
 # CloudMail 管理员邮箱/密码；用于手动生成 Token，也用于域名被隐藏时自动登录获取域名。
-CLOUDMAIL_ADMIN_EMAIL = env_str("CLOUDMAIL_ADMIN_EMAIL", "")
+CLOUDMAIL_ADMIN_EMAIL = ""
 CLOUDMAIL_PASSWORD = env_str("CLOUDMAIL_PASSWORD", "")
 
 # CloudMail 生成 Token 接口路径；默认按 Cloud Mail 公共 API 风格。

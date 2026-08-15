@@ -23,6 +23,37 @@ def test_imap_fields_exposed_in_editor():
     assert fields["QQ_IMAP_PORT"]["max"] == 65535
 
 
+def test_email_source_fields_exposed_in_editor():
+    """7 种邮箱来源的配置字段都暴露在「邮箱 / OTP」分组下。"""
+    fields = _fields_by_key()
+    expected = {
+        "GPTMAIL_API_KEY": "str",
+        "MAIL_NEST_API_KEY": "str",
+        "MAIL_NEST_PROJECT_CODE": "str",
+        "CLOUDFLARE_API_BASE": "str",
+        "CLOUDFLARE_API_KEY": "str",
+        "CLOUDFLARE_AUTH_MODE": "str",
+        "CLOUDFLARE_CUSTOM_AUTH": "str",
+        "CLOUDFLARE_DEFAULT_DOMAINS": "list_str_multiline",
+        "CLOUDMAIL_API_BASE": "str",
+        "CLOUDMAIL_ADMIN_EMAIL": "str",
+        "CLOUDMAIL_PASSWORD": "str",
+        "CLOUDMAIL_AUTH_TOKEN": "str",
+        "CLOUDMAIL_DOMAINS": "list_str_multiline",
+        "CLOUDMAIL_AUTO_ADD_USER": "bool",
+        "CLOUDMAIL_RANDOM_LOCAL_LENGTH": "int",
+    }
+    for key, vtype in expected.items():
+        assert key in fields, f"{key} 未暴露到 WebUI 配置页"
+        assert fields[key]["file"] == "email.py"
+        assert fields[key]["group"] == "邮箱 / OTP"
+        assert fields[key]["type"] == vtype
+    # 密钥类字段必须 secret，避免明文回显
+    for key in ("GPTMAIL_API_KEY", "MAIL_NEST_API_KEY", "CLOUDFLARE_API_KEY",
+                "CLOUDFLARE_CUSTOM_AUTH", "CLOUDMAIL_PASSWORD", "CLOUDMAIL_AUTH_TOKEN"):
+        assert fields[key].get("secret") is True, f"{key} 应为 secret 字段"
+
+
 def test_update_config_switches_to_163(tmp_path, monkeypatch):
     monkeypatch.setattr(CE, "_CONFIG_DIR", tmp_path)
     fake = tmp_path / "email.py"

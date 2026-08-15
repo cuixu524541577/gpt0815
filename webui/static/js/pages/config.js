@@ -25,8 +25,14 @@
 
   const EMAIL_SOURCE_OPTIONS = [
     { value: 'outlook', label: 'Outlook 邮箱池（REST / Graph / IMAP OAuth2）' },
-    { value: 'buygptpuls_temp', label: 'buygptpuls 临时邮箱 API' },
-    { value: 'api_otp_mail', label: '邮箱API接码（邮箱----api_url）' },
+    { value: 'cloudflare_domain', label: 'Cloudflare 域名邮箱（转发到收信邮箱，IMAP 取信）' },
+    { value: 'cloudflare', label: 'Cloudflare Worker 临时邮箱' },
+    { value: 'generic_api', label: '通用 API 取码邮箱池（邮箱----取码地址）' },
+    { value: 'gptmail', label: 'GPTMail 临时邮箱 API' },
+    { value: 'mailnest', label: 'MailNest 迈巢临时邮箱 API' },
+    { value: 'cloudmail', label: 'CloudMail 邮箱 API' },
+    { value: 'buygptpuls_temp', label: 'buygptpuls 临时邮箱 API（旧）' },
+    { value: 'api_otp_mail', label: '邮箱API接码（邮箱----api_url）（旧）' },
   ];
   const OUTLOOK_FETCH_MODE_OPTIONS = [
     { value: 'auto', label: '自动兼容（Outlook REST → Graph → IMAP）' },
@@ -59,6 +65,24 @@
   const BUYGPTPULS_EMAIL_KEYS = new Set([
     'BUYGPTPULS_API_BASE', 'BUYGPTPULS_API_KEY', 'BUYGPTPULS_DOMAIN', 'BUYGPTPULS_DOMAIN_LEVEL',
     'BUYGPTPULS_PREFIX', 'BUYGPTPULS_RANDOM_LENGTH',
+  ]);
+  // 各邮箱来源专属字段：只在来源匹配时显示（cloudflare_domain 等新来源与旧来源共用同一套显隐机制）
+  const DOMAIN_EMAIL_KEYS = new Set([
+    'EMAIL_DOMAIN', 'QQ_EMAIL', 'QQ_IMAP_PASSWORD', 'QQ_IMAP_SERVER', 'QQ_IMAP_PORT',
+  ]);
+  const GPTMAIL_EMAIL_KEYS = new Set(['GPTMAIL_API_KEY']);
+  const MAILNEST_EMAIL_KEYS = new Set(['MAIL_NEST_API_KEY', 'MAIL_NEST_PROJECT_CODE']);
+  const CLOUDFLARE_EMAIL_KEYS = new Set([
+    'CLOUDFLARE_API_BASE', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_AUTH_MODE',
+    'CLOUDFLARE_CUSTOM_AUTH', 'CLOUDFLARE_DEFAULT_DOMAINS',
+  ]);
+  const CLOUDMAIL_EMAIL_KEYS = new Set([
+    'CLOUDMAIL_API_BASE', 'CLOUDMAIL_ADMIN_EMAIL', 'CLOUDMAIL_PASSWORD', 'CLOUDMAIL_AUTH_TOKEN',
+    'CLOUDMAIL_DOMAINS', 'CLOUDMAIL_AUTO_ADD_USER', 'CLOUDMAIL_RANDOM_LOCAL_LENGTH',
+  ]);
+  const VALID_EMAIL_SOURCES = new Set([
+    'outlook', 'cloudflare_domain', 'cloudflare', 'generic_api', 'gptmail', 'mailnest', 'cloudmail',
+    'buygptpuls_temp', 'api_otp_mail',
   ]);
   const CONFIG_TABS = [
     {
@@ -98,6 +122,12 @@
         'OUTLOOK_FETCH_MODE', 'OUTLOOK_USE_PASSWORD_LOGIN', 'OUTLOOK_CONNECTION_CACHE_TTL', 'OUTLOOK_FETCH_LIMIT',
         'BUYGPTPULS_API_BASE', 'BUYGPTPULS_API_KEY', 'BUYGPTPULS_DOMAIN', 'BUYGPTPULS_DOMAIN_LEVEL',
         'BUYGPTPULS_PREFIX', 'BUYGPTPULS_RANDOM_LENGTH',
+        'EMAIL_DOMAIN', 'QQ_EMAIL', 'QQ_IMAP_PASSWORD', 'QQ_IMAP_SERVER', 'QQ_IMAP_PORT',
+        'GPTMAIL_API_KEY', 'MAIL_NEST_API_KEY', 'MAIL_NEST_PROJECT_CODE',
+        'CLOUDFLARE_API_BASE', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_AUTH_MODE',
+        'CLOUDFLARE_CUSTOM_AUTH', 'CLOUDFLARE_DEFAULT_DOMAINS',
+        'CLOUDMAIL_API_BASE', 'CLOUDMAIL_ADMIN_EMAIL', 'CLOUDMAIL_PASSWORD', 'CLOUDMAIL_AUTH_TOKEN',
+        'CLOUDMAIL_DOMAINS', 'CLOUDMAIL_AUTO_ADD_USER', 'CLOUDMAIL_RANDOM_LOCAL_LENGTH',
       ],
     },
     {
@@ -160,9 +190,7 @@
   function currentEmailSource() {
     const el = $('#configForm [data-key="EMAIL_SOURCE"]');
     const source = el ? (el.dataset.value ?? el.value) : (fieldByKey(CONFIG, 'EMAIL_SOURCE')?.value || 'outlook');
-    if (source === 'buygptpuls_temp') return 'buygptpuls_temp';
-    if (source === 'api_otp_mail') return 'api_otp_mail';
-    return 'outlook';
+    return VALID_EMAIL_SOURCES.has(source) ? source : 'outlook';
   }
 
   function fieldScopeAttr(f) {
@@ -173,6 +201,11 @@
     if (f.key === 'REGISTER_PROXY_POOL' || f.key === 'CODEX_PROXY_POOL') return ' data-proxy-scope="advanced"';
     if (OUTLOOK_EMAIL_KEYS.has(f.key)) return ' data-source-scope="outlook"';
     if (BUYGPTPULS_EMAIL_KEYS.has(f.key)) return ' data-source-scope="buygptpuls_temp"';
+    if (DOMAIN_EMAIL_KEYS.has(f.key)) return ' data-source-scope="cloudflare_domain"';
+    if (GPTMAIL_EMAIL_KEYS.has(f.key)) return ' data-source-scope="gptmail"';
+    if (MAILNEST_EMAIL_KEYS.has(f.key)) return ' data-source-scope="mailnest"';
+    if (CLOUDFLARE_EMAIL_KEYS.has(f.key)) return ' data-source-scope="cloudflare"';
+    if (CLOUDMAIL_EMAIL_KEYS.has(f.key)) return ' data-source-scope="cloudmail"';
     if (/^(API_OTP_MAIL_)/.test(f.key)) return ' data-source-scope="api_otp_mail"';
     return '';
   }
@@ -407,8 +440,22 @@
 
     const labelMap = {
       outlook: 'Outlook 邮箱池',
+      cloudflare_domain: 'Cloudflare 域名邮箱',
+      cloudflare: 'Cloudflare Worker 临时邮箱',
+      generic_api: '通用 API 取码邮箱',
+      gptmail: 'GPTMail 临时邮箱',
+      mailnest: 'MailNest 临时邮箱',
+      cloudmail: 'CloudMail 邮箱',
       buygptpuls_temp: 'buygptpuls 临时邮箱',
       api_otp_mail: '邮箱 API 接码',
+    };
+    const noteMap = {
+      cloudflare_domain: '当前显示 Cloudflare 域名与收信邮箱 IMAP 配置。注册时自动生成 random@域名，验证码经 Cloudflare catch-all 转发到收信邮箱，面板通过 IMAP 读取。',
+      cloudflare: '当前显示 Cloudflare Worker 临时邮箱（cloudflare_temp_email）API 配置，注册时自动创建邮箱并取码。',
+      generic_api: '通用 API 取码：在「邮箱池」页导入 邮箱----取码地址，注册时自动领取邮箱并直接请求取码地址提取验证码。',
+      gptmail: '当前显示 GPTMail 临时邮箱 API 配置，注册时自动生成邮箱并收码。',
+      mailnest: '当前显示 MailNest 迈巢临时邮箱 API 配置，注册时自动购买邮箱并收码。',
+      cloudmail: '当前显示 CloudMail API 配置，注册时自动生成邮箱并收码。',
     };
     const note = $('#emailSourceNote');
     if (note) {
@@ -416,6 +463,8 @@
         note.innerHTML = `当前显示 buygptpuls 临时邮箱地址、API Key、域名/级数、前缀、邮箱长度和通用 OTP 轮询配置。domain 留空时随机选择启用域名。${externalLink(BUYGPTPULS_TEMP_MAIL_URL, '打开临时邮箱官网')}`;
       } else if (source === 'api_otp_mail') {
         note.innerHTML = '当前显示 API 接码邮箱地址和通用 OTP 轮询配置；导入格式为：邮箱----接码api地址。';
+      } else if (noteMap[source]) {
+        note.textContent = noteMap[source];
       } else {
         note.textContent = '当前只显示 Outlook 本地 IMAP / OAuth 和通用 OTP 轮询配置。';
       }

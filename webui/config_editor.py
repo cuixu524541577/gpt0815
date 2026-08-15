@@ -123,6 +123,66 @@ EDITABLE_FIELDS = [
         "label": "IMAP 端口", "help": "SSL 端口，一般填 993", "min": 1, "max": 65535,
     },
     {
+        "key": "GPTMAIL_API_KEY", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "GPTMail API Key", "help": "邮箱来源选 gptmail 时必填", "secret": True,
+    },
+    {
+        "key": "MAIL_NEST_API_KEY", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "MailNest API Key", "help": "邮箱来源选 mailnest 时必填", "secret": True,
+    },
+    {
+        "key": "MAIL_NEST_PROJECT_CODE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "MailNest 项目代码", "help": "OpenAI/ChatGPT 默认 chatgpt001",
+    },
+    {
+        "key": "CLOUDFLARE_API_BASE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CF Worker 邮箱 API 地址", "help": "cloudflare_temp_email Worker 根地址，如 https://mail.example.com",
+    },
+    {
+        "key": "CLOUDFLARE_API_KEY", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CF Worker API Key", "help": "匿名模式可留空；admin 模式填 ADMIN_PASSWORD", "secret": True,
+    },
+    {
+        "key": "CLOUDFLARE_AUTH_MODE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CF Worker 鉴权模式", "help": "none / bearer / x-api-key / x-admin-auth / query-key",
+    },
+    {
+        "key": "CLOUDFLARE_CUSTOM_AUTH", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CF Worker 全局密码", "help": "PASSWORDS，注入请求头 x-custom-auth", "secret": True,
+    },
+    {
+        "key": "CLOUDFLARE_DEFAULT_DOMAINS", "file": "email.py", "type": "list_str_multiline", "group": "邮箱 / OTP",
+        "label": "CF Worker 默认域名", "help": "每行一个，留空由 Worker 决定",
+    },
+    {
+        "key": "CLOUDMAIL_API_BASE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CloudMail API 地址", "help": "例如 https://mail.example.com",
+    },
+    {
+        "key": "CLOUDMAIL_ADMIN_EMAIL", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CloudMail 管理员邮箱", "help": "用于自动获取域名与生成 Token",
+    },
+    {
+        "key": "CLOUDMAIL_PASSWORD", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CloudMail 登录密码", "help": "管理员邮箱对应的密码", "secret": True,
+    },
+    {
+        "key": "CLOUDMAIL_AUTH_TOKEN", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "CloudMail Auth Token", "help": "可手动填写，也可由账号密码自动获取", "secret": True,
+    },
+    {
+        "key": "CLOUDMAIL_DOMAINS", "file": "email.py", "type": "list_str_multiline", "group": "邮箱 / OTP",
+        "label": "CloudMail 邮箱域名", "help": "每行一个；留空运行时从平台自动获取",
+    },
+    {
+        "key": "CLOUDMAIL_AUTO_ADD_USER", "file": "email.py", "type": "bool", "group": "邮箱 / OTP",
+        "label": "CloudMail 自动创建用户", "help": "生成邮箱后是否调用 /api/public/addUser 创建邮箱用户",
+    },
+    {
+        "key": "CLOUDMAIL_RANDOM_LOCAL_LENGTH", "file": "email.py", "type": "int", "group": "邮箱 / OTP",
+        "label": "CloudMail 随机邮箱长度", "help": "随机邮箱 local-part 长度", "min": 4, "max": 64,
+    },
+    {
         "key": "BUYGPTPULS_API_BASE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
         "label": "临时邮箱 API 地址", "help": "buygptpuls 临时邮箱服务地址",
     },

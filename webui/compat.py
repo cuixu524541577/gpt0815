@@ -39,6 +39,62 @@ def _now() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _parse_sms_activate_countries(payload) -> dict[str, str]:
+    """sms-activate getCountries 响应 → {country_id: iso}。"""
+    iso_map: dict[str, str] = {}
+    if not isinstance(payload, dict):
+        return iso_map
+    for cid, info in payload.items():
+        if not isinstance(info, dict):
+            continue
+        iso = str(info.get("iso") or info.get("iso2") or "").strip().upper()
+        if iso:
+            iso_map[str(cid)] = iso
+    return iso_map
+
+
+def _parse_sms_activate_prices(payload, provider: str, service: str, iso_map=None) -> list[dict]:
+    """sms-activate getPrices 响应 → 价格条目列表。
+
+    标准结构：{country_id: {service: {country_id: {code, count, price}}}}；
+    兼容少包一层（{country_id: {service: {code, count, price}}}）等变体。
+    """
+    iso_map = iso_map or {}
+    items: list[dict] = []
+    if not isinstance(payload, dict):
+        return items
+    for country_id, svc_map in payload.items():
+        if not isinstance(svc_map, dict):
+            continue
+        for svc_code, detail in svc_map.items():
+            # detail 可能再包一层 country_id → 价格详情
+            if isinstance(detail, dict) and not any(k in detail for k in ("price", "count")):
+                nested = next(
+                    (v for v in detail.values() if isinstance(v, dict) and "price" in v),
+                    None,
+                )
+                if nested is not None:
+                    detail = nested
+            if not isinstance(detail, dict):
+                continue
+            price = detail.get("price")
+            count = detail.get("count")
+            if price is None and count is None:
+                continue
+            cid = str(country_id)
+            items.append({
+                "provider": provider,
+                "service": str(svc_code),
+                "country_id": cid,
+                "country_iso": iso_map.get(cid, ""),
+                "country_name": iso_map.get(cid, "") or cid,
+                "price": price,
+                "count": count,
+                "price_tier_key": f"{provider}:{cid}:{svc_code}",
+            })
+    return items
+
+
 def _load(name: str, default=None):
     p = _DATA_DIR / f"{name}.json"
     if not p.exists():
@@ -2127,7 +2183,56 @@ def register_compat_routes(app) -> None:
 
     @app.get("/api/sms/prices")
     def api_sms_prices():
-        return jsonify({"ok": True, "prices": {}})
+        """价格查询：逐个启用平台直连 getPrices（只查价格，不购买号码）。
+
+        前端传 logical_service=openai，映射到平台实际服务代码（config SMS_SERVICE，默认 dr）。
+        """
+        service = str(request.args.get("service") or request.args.get("logical_service") or "").strip()
+        if not service or service == "openai":
+            try:
+                from config.codex import SMS_SERVICE as _svc
+                service = str(_svc or "dr")
+            except Exception:
+                service = "dr"
+
+        rows = _sms_providers_rows()
+        items: list = []
+        errors: list = []
+        for row in rows:
+            if not row.get("enabled"):
+                continue
+            key = (row.get("api_key") or "").strip()
+            base = row.get("base_url") or ""
+            if not key or not base:
+                continue
+            try:
+                import requests
+                iso_map: dict = {}
+                try:
+                    resp = requests.get(
+                        base,
+                        params={"api_key": key, "action": "getCountries"},
+                        timeout=12,
+                    )
+                    text = resp.text.strip()
+                    if resp.status_code == 200 and text.startswith("{"):
+                        iso_map = _parse_sms_activate_countries(json.loads(text))
+                except Exception:
+                    iso_map = {}
+                resp2 = requests.get(
+                    base,
+                    params={"api_key": key, "action": "getPrices", "service": service},
+                    timeout=15,
+                )
+                text2 = resp2.text.strip()
+                if resp2.status_code != 200 or not text2.startswith("{"):
+                    raise RuntimeError(f"getPrices HTTP {resp2.status_code}: {text2[:120]}")
+                items.extend(_parse_sms_activate_prices(
+                    json.loads(text2), str(row.get("provider") or ""), service, iso_map,
+                ))
+            except Exception as exc:
+                errors.append(f"{row.get('provider')}: {type(exc).__name__}: {exc}")
+        return jsonify({"ok": True, "items": items, "errors": errors})
 
     @app.get("/api/sms/selections")
     def api_sms_selections_list():

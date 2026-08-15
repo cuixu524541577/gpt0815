@@ -1797,9 +1797,12 @@ def register_compat_routes(app) -> None:
         else:
             with db._LOCK:
                 rows = db._load_accounts()
+        # 前端创建按钮依赖 account_total 判断是否可点（只读 total 会导致永远为 0 → 按钮常灰）
         return jsonify({
             "ok": True,
             "identities": [r.get("email") for r in rows],
+            "requested": len(identities) if scope == "selected" else len(rows),
+            "account_total": len(rows),
             "total": len(rows),
         })
 

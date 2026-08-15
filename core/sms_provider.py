@@ -106,7 +106,15 @@ def _request_grizzly(http: CurlSession, params: dict) -> str:
     """
     base_params = {"api_key": _cfg.SMS_API_KEY}
     base_params.update(params)
-    resp = http.get(_api_base(), params=base_params)
+    base = _api_base()
+    key = str(base_params.get("api_key") or "")
+    masked = (key[:4] + "***" + key[-2:]) if len(key) > 8 else ("<空>" if not key else "***")
+    if params.get("action") == "getNumber":
+        logger.info(
+            "[SMS] 取号请求：url=%s action=getNumber service=%s country=%s api_key=%s",
+            base, params.get("service"), params.get("country"), masked,
+        )
+    resp = http.get(base, params=base_params)
     if resp.status_code != 200:
         raise SmsProviderError(
             f"{_provider_name()} HTTP {resp.status_code}: {(resp.text or '')[:200]}"
@@ -115,7 +123,10 @@ def _request_grizzly(http: CurlSession, params: dict) -> str:
 
     # 公共错误码（任何 action 都可能返回）
     if text == "NO_KEY":
-        raise SmsProviderError("接码平台 API key 未配置或无效（NO_KEY），请在面板「接码配置」填写 SMS_API_KEY")
+        raise SmsProviderError(
+            f"接码平台返回 NO_KEY：api_key 未被该平台识别（key={masked}，请求地址={base}）。"
+            f"请核对「提Codex配置」接码通道与 key 是否同一平台"
+        )
     if text == "BAD_KEY":
         raise SmsProviderError("接码平台 API key 无效（BAD_KEY）")
     if text == "NO_BALANCE":

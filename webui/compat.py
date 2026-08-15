@@ -1485,33 +1485,54 @@ def register_compat_routes(app) -> None:
             if not token:
                 item["error"] = "账号无 access_token"
             else:
-                try:
-                    resp = _cffi.get(
-                        "https://chatgpt.com/backend-api/me",
-                        headers={"Authorization": f"Bearer {token}"},
-                        proxies=_CFGP, **_CFGI,
-                    )
-                    if resp.status_code == 200:
-                        item["status"] = "success"
-                        ok_count += 1
-                    else:
-                        item["status"] = "failed"
-                        item["error"] = f"token 无效（HTTP {resp.status_code}），需要重新注册或手动处理"
+                # 网络/代理错误（SSL/连接重置等）自动换代理重试，最多 3 次；
+                # HTTP 4xx/5xx 才是 token 本身的问题，不重试。
+                attempt = 0
+                while True:
+                    attempt += 1
+                    try:
+                        resp = _cffi.get(
+                            "https://chatgpt.com/backend-api/me",
+                            headers={"Authorization": f"Bearer {token}"},
+                            proxies=_CFGP, **_CFGI,
+                        )
+                        if resp.status_code == 200:
+                            item["status"] = "success"
+                            ok_count += 1
+                        else:
+                            item["status"] = "failed"
+                            item["error"] = f"token 无效（HTTP {resp.status_code}），需要重新注册或手动处理"
+                            failed += 1
+                            with db._LOCK:
+                                rows_db = db._load_accounts()
+                                for r in rows_db:
+                                    if r.get("email") == email:
+                                        r["codex_status"] = "failed"
+                                        r["codex_error"] = item["error"]
+                                db._save_accounts(rows_db)
+                        break
+                    except Exception as exc:
+                        text = str(exc)
+                        is_net = any(k in text for k in ("SSL", "Connection", "Max retries", "handshake", "timed out", "Could not resolve"))
+                        if not is_net:
+                            item["error"] = f"{type(exc).__name__}: {text[:120]}"
+                            failed += 1
+                            break
+                        if attempt < 3:
+                            if _CFGP and proxy:
+                                try:
+                                    from core.proxy_pool import blacklist_proxy
+                                    blacklist_proxy(proxy)
+                                except Exception:
+                                    pass
+                            proxy = _proxy_for_task()
+                            if proxy and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", proxy):
+                                proxy = "http://" + proxy
+                            _CFGP = {"http": proxy, "https": proxy} if proxy else None
+                            continue
+                        item["error"] = f"网络/代理错误：{text[:120]}（token 有效性未判定，已换代理重试 3 次）"
                         failed += 1
-                        with db._LOCK:
-                            rows_db = db._load_accounts()
-                            for r in rows_db:
-                                if r.get("email") == email:
-                                    r["codex_status"] = "failed"
-                                    r["codex_error"] = item["error"]
-                            db._save_accounts(rows_db)
-                except Exception as exc:
-                    text = str(exc)
-                    if any(k in text for k in ("SSL", "Connection", "Max retries", "handshake", "timed out", "Could not resolve")):
-                        item["error"] = f"网络/代理错误：{text[:120]}（token 有效性未判定）"
-                    else:
-                        item["error"] = f"{type(exc).__name__}: {text[:120]}"
-                    failed += 1
+                        break
             item["ok"] = item["status"] == "success"
             item["message"] = item["error"] or ("token 有效" if item["ok"] else "")
             items.append(item)

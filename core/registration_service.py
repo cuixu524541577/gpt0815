@@ -302,6 +302,10 @@ def _run_registration_with_retry(
     """执行注册；第一步 403（出口 IP 被拉黑）时换代理重试，最多 _PROXY_403_RETRIES 次。
 
     被封代理进临时黑名单（pick_proxy 会自动跳过），避免后续任务再撞上同一个 IP。
+
+    注意：main.run_registration 会把异常转成 result dict 返回（不抛出），
+    因此 403 要同时从异常文本和失败结果里识别；只对步骤1（providers，账号尚未创建）
+    的 403 重试，流程中后段的 403（账号/风控类拒绝）不重试，避免重复创建。
     """
     from core.proxy_pool import pick_proxy as _pick_proxy
     from core.proxy_pool import blacklist_proxy as _blacklist_proxy
@@ -310,7 +314,7 @@ def _run_registration_with_retry(
     for attempt in range(1, _PROXY_403_RETRIES + 1):
         proxy = _pick_proxy()
         try:
-            return run_fn(email=email, name=name, birthday=birthday, proxy=proxy)
+            result = run_fn(email=email, name=name, birthday=birthday, proxy=proxy)
         except Exception as exc:
             last_error = exc
             text = str(exc)
@@ -328,6 +332,27 @@ def _run_registration_with_retry(
                     f"[Job {job_id}] 代理 {proxy} 连续 403，{_PROXY_403_RETRIES} 个代理均被拦截"
                 )
             raise last_error
+
+        # run_registration 的失败以 dict 返回：仅步骤1 providers 的 403 是 IP 被封特征
+        if (
+            isinstance(result, dict)
+            and not result.get("success")
+            and result.get("step") == "step1_providers"
+            and "403" in str(result.get("error") or "")
+        ):
+            if attempt < _PROXY_403_RETRIES:
+                _blacklist_proxy(proxy)
+                if log_logger is not None:
+                    log_logger.warning(
+                        f"[Job {job_id}] 代理 {proxy} 在步骤1返回 403（IP 被封），"
+                        f"换代理重试 {attempt + 1}/{_PROXY_403_RETRIES}"
+                    )
+                continue
+            if log_logger is not None:
+                log_logger.error(
+                    f"[Job {job_id}] 代理 {proxy} 连续 403，{_PROXY_403_RETRIES} 个代理均被拦截"
+                )
+        return result
 
 
 def _run_one_job(job_id: int, log_file: str) -> None:

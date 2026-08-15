@@ -199,10 +199,13 @@ def run_registration(
     logger.debug(f"[注册] 设备ID={session.device_id}，会话日志ID={session.auth_session_logging_id}")
 
     create_acknowledged = False
+    current_step = "init"
     try:
         # ==================== 阶段1: ChatGPT 认证 ====================
         # 步骤1: 获取 providers
+        current_step = "step1_providers"
         providers = get_providers(session)
+        current_step = "flow"
         time.sleep(0.5)
 
         # 步骤2: 获取 CSRF token
@@ -458,7 +461,7 @@ def run_registration(
                         release_domain_email(email, status="available", note=f"上次失败: {str(e)[:180]}")
         except Exception:
             pass
-        return {"success": False, "email": email, "error": str(e)}
+        return {"success": False, "email": email, "error": str(e), "step": current_step}
 
 
 def main():

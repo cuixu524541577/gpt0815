@@ -346,11 +346,18 @@ body.sidebar-collapsed {
   box-shadow: 0 18px 36px rgba(20, 184, 166, .28);
 }
 
+.brand-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .brand-copy h1 {
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.2;
   letter-spacing: .2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand-copy p {
   margin-top: 5px;

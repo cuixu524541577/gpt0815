@@ -44,6 +44,13 @@
     { value: 'email', label: '邮箱注册（默认）' },
     { value: 'phone', label: '手机号注册' },
   ];
+  const SMS_PROVIDER_OPTIONS = [
+    { value: 'grizzly', label: '平台接码：GrizzlySMS' },
+    { value: 'hero', label: '平台接码：HeroSMS' },
+    { value: 'smsbower', label: '平台接码：SMSBower' },
+    { value: 'l', label: 'API接码：本地 L 取号服务' },
+    { value: 'h', label: 'API接码：本地 H 取号服务' },
+  ];
   const PROXY_MODE_OPTIONS = [
     { value: 'global', label: '默认模式：使用全局代理池' },
     { value: 'advanced', label: '高级模式：注册/Codex 分池' },
@@ -111,7 +118,7 @@
       id: 'codex-extract',
       title: '提Codex配置',
       desc: '控制 Codex OAuth 手机验证时使用平台接码或 API接码。',
-      keys: ['CODEX_SMS_SOURCE'],
+      keys: ['SMS_PROVIDER'],
     },
     {
       id: 'email',
@@ -213,6 +220,7 @@
   function fieldOptions(f) {
     if (Array.isArray(f.options) && f.options.length) return f.options;
     if (f.key === 'EMAIL_SOURCE') return EMAIL_SOURCE_OPTIONS;
+    if (f.key === 'SMS_PROVIDER') return SMS_PROVIDER_OPTIONS;
     if (f.key === 'OUTLOOK_FETCH_MODE') return OUTLOOK_FETCH_MODE_OPTIONS;
     if (f.key === 'REGISTRATION_MODE') return REGISTRATION_MODE_OPTIONS;
     if (f.key === 'PROXY_MODE') return PROXY_MODE_OPTIONS;

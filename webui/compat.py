@@ -535,19 +535,26 @@ def _run_automation_item(task_type: str, email: str, task_id: int) -> dict:
         if acc is None or not acc.get("access_token"):
             return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
         try:
-            import requests as _req
+            from curl_cffi import requests as _cffi
+            from config import IMPERSONATE as _IMPERSONATE
             proxy = _proxy_for_task()
-            proxies = {"http": proxy, "https": proxy} if proxy else None
-            resp = _req.get(
+            if proxy and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", proxy):
+                proxy = "http://" + proxy
+            resp = _cffi.get(
                 "https://chatgpt.com/backend-api/me",
                 headers={"Authorization": f"Bearer {acc['access_token']}"},
-                timeout=15, proxies=proxies,
+                proxies={"http": proxy, "https": proxy} if proxy else None,
+                impersonate=_IMPERSONATE,
+                timeout=15,
             )
             if resp.status_code == 200:
                 return {"ok": True, "status": "success", "message": "token 有效"}
             return {"ok": False, "status": "failed", "message": f"token 无效（HTTP {resp.status_code}）"}
         except Exception as exc:
-            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {str(exc)[:120]}"}
+            text = str(exc)
+            if any(k in text for k in ("SSL", "Connection", "Max retries", "handshake", "timed out", "Could not resolve")):
+                return {"ok": False, "status": "failed", "message": f"网络/代理错误：{text[:120]}（token 有效性未判定）"}
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {text[:120]}"}
 
     if task_type == "agent_identity":
         from core.agent_identity_pkg.agent_identity_service import ensure_agent_identity
@@ -1459,11 +1466,18 @@ def register_compat_routes(app) -> None:
         items = []
         ok_count = failed = 0
         try:
-            import requests as _req
+            # 用 curl_cffi（支持 socks/裸 host:port 等代理格式，项目统一标准）；
+            # 普通 requests 遇到 socks5 或裸 host:port 会直接 SSLError
+            from curl_cffi import requests as _cffi
+            from config import IMPERSONATE as _IMPERSONATE
             proxy = _proxy_for_task()
-            proxies = {"http": proxy, "https": proxy} if proxy else None
+            if proxy and not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", proxy):
+                proxy = "http://" + proxy
+            _CFGI = {"impersonate": _IMPERSONATE, "timeout": 15}
+            _CFGP = {"http": proxy, "https": proxy} if proxy else None
         except Exception:
-            proxies = None
+            _cffi = None
+            _CFGI, _CFGP = {}, None
         for row in rows:
             email = row.get("email", "")
             token = row.get("access_token") or ""
@@ -1472,10 +1486,10 @@ def register_compat_routes(app) -> None:
                 item["error"] = "账号无 access_token"
             else:
                 try:
-                    resp = _req.get(
+                    resp = _cffi.get(
                         "https://chatgpt.com/backend-api/me",
                         headers={"Authorization": f"Bearer {token}"},
-                        timeout=15, proxies=proxies,
+                        proxies=_CFGP, **_CFGI,
                     )
                     if resp.status_code == 200:
                         item["status"] = "success"
@@ -1492,7 +1506,11 @@ def register_compat_routes(app) -> None:
                                     r["codex_error"] = item["error"]
                             db._save_accounts(rows_db)
                 except Exception as exc:
-                    item["error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+                    text = str(exc)
+                    if any(k in text for k in ("SSL", "Connection", "Max retries", "handshake", "timed out", "Could not resolve")):
+                        item["error"] = f"网络/代理错误：{text[:120]}（token 有效性未判定）"
+                    else:
+                        item["error"] = f"{type(exc).__name__}: {text[:120]}"
                     failed += 1
             item["ok"] = item["status"] == "success"
             item["message"] = item["error"] or ("token 有效" if item["ok"] else "")

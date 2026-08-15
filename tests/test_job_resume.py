@@ -61,3 +61,42 @@ def test_reconcile_stale_running_jobs(monkeypatch):
     assert updated[2]["status"] == "failed"
     assert 3 not in updated and 4 not in updated
     assert released == [("b@outlook.jp", "available")]
+
+
+def test_run_one_job_startup_exception_marks_failed(monkeypatch):
+    """启动阶段异常必须标记 failed——否则任务永远卡 pending 且无提示。"""
+    from core import registration_service as svc
+
+    updates = []
+    monkeypatch.setattr(
+        svc.db, "update_job",
+        lambda job_id, **kw: updates.append((job_id, kw)),
+    )
+    monkeypatch.setattr(
+        svc, "_activate_job",
+        lambda j: (_ for _ in ()).throw(RuntimeError("boom at activate")),
+    )
+    monkeypatch.setattr(svc, "_deactivate_job", lambda j: None)
+
+    svc._run_one_job(7, "x.log")
+    assert updates, "必须调用 update_job 把任务标记为失败"
+    first = updates[0][1]
+    assert first["status"] == "failed"
+    assert "启动阶段异常" in first["error"]
+
+
+def test_run_one_job_cancelled_skips_without_marking(monkeypatch):
+    """取消检查在启动阶段兜底之前：cancelled 任务直接跳过，不标记失败。"""
+    from core import registration_service as svc
+
+    updates = []
+    monkeypatch.setattr(
+        svc.db, "update_job",
+        lambda job_id, **kw: updates.append((job_id, kw)),
+    )
+    monkeypatch.setattr(svc.db, "get_job", lambda job_id: {"id": 9, "status": "cancelled"})
+    monkeypatch.setattr(svc, "_activate_job", lambda j: None)
+    monkeypatch.setattr(svc, "_deactivate_job", lambda j: None)
+
+    svc._run_one_job(9, "x.log")
+    assert updates == [], "cancelled 任务不应被改写"

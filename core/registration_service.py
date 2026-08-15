@@ -333,21 +333,41 @@ def _run_registration_with_retry(
 def _run_one_job(job_id: int, log_file: str) -> None:
     """单任务入口（线程池里跑这个）。"""
     log_logger = logging.getLogger(__name__)
-    _activate_job(job_id)
+    try:
+        _activate_job(job_id)
 
-    # 取消检查：用户可能在任务排队期间点了"取消排队"，把 status 改成了 cancelled。
-    # 因为 Future 已经 submit 进线程池无法撤回，只能在真正执行前自检一下，跳过 cancelled 的。
-    current = db.get_job(job_id)
-    if not current:
-        log_logger.info(f"[Job {job_id}] 任务记录已删除，跳过执行")
-        _deactivate_job(job_id)
-        return
-    if current.get("status") == "cancelled":
-        log_logger.info(f"[Job {job_id}] 已被用户取消，跳过执行")
-        _deactivate_job(job_id)
-        return
+        # 取消检查：用户可能在任务排队期间点了"取消排队"，把 status 改成了 cancelled。
+        # 因为 Future 已经 submit 进线程池无法撤回，只能在真正执行前自检一下，跳过 cancelled 的。
+        current = db.get_job(job_id)
+        if not current:
+            log_logger.info(f"[Job {job_id}] 任务记录已删除，跳过执行")
+            _deactivate_job(job_id)
+            return
+        if current.get("status") == "cancelled":
+            log_logger.info(f"[Job {job_id}] 已被用户取消，跳过执行")
+            _deactivate_job(job_id)
+            return
 
-    db.update_job(job_id, status="running", started_at=datetime.now().isoformat(timespec="seconds"))
+        db.update_job(job_id, status="running", started_at=datetime.now().isoformat(timespec="seconds"))
+    except Exception as exc:
+        # 启动阶段（激活/状态翻转）异常：线程池 future 的异常无人消费，
+        # 不兜住的话任务会永远停在 pending 且没有任何错误提示——
+        # 前端会一直显示"已有 N 个尝试在跑或排队"，队列也永远不会继续。
+        try:
+            _deactivate_job(job_id)
+        except Exception:
+            pass
+        log_logger.exception(f"[Job {job_id}] 启动阶段异常，标记为失败")
+        try:
+            db.update_job(
+                job_id,
+                status="failed",
+                error=f"启动阶段异常：{type(exc).__name__}: {exc}"[:500],
+                completed_at=datetime.now().isoformat(timespec="seconds"),
+            )
+        except Exception:
+            pass
+        return
 
     email: str | None = None
     try:

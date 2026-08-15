@@ -28,33 +28,18 @@ async function initAuthBar() {
     const me = await window.GFR.api('/api/auth/me');
     if (!me.authenticated || !me.user) throw new Error('unauthenticated');
     const user = me.user || {};
-    const authType = String(me.auth_type || user.auth_type || 'telegram');
-    const display = authType === 'server_link'
-      ? t('auth.session.server_link', {}, '服务器链接')
-      : authType === 'password'
-        ? String(user.username || t('auth.session.password', {}, '密码账号'))
-        : user.username
-          ? '@' + user.username
-          : [user.first_name, user.last_name].filter(Boolean).join(' ') || String(user.telegram_user_id || 'Telegram');
-    const accountKind = authType === 'server_link'
-      ? t('auth.session.server_link', {}, '服务器链接')
-      : authType === 'password'
-        ? t('auth.session.password', {}, '密码账号')
-        : t('auth.session.telegram', {}, 'Telegram 账号');
+    const display = String(user.username || t('auth.session.password', {}, '密码账号'));
     nameEls.forEach(nameEl => {
       nameEl.textContent = display;
       nameEl.title = display;
     });
     kindEls.forEach(kindEl => {
-      kindEl.dataset.i18n = authType === 'server_link'
-        ? 'auth.session.server_link'
-        : authType === 'password' ? 'auth.session.password' : 'auth.session.telegram';
-      kindEl.textContent = accountKind;
+      kindEl.dataset.i18n = 'auth.session.password';
+      kindEl.textContent = t('auth.session.password', {}, '密码账号');
     });
     if (avatarEl) {
-      const fallbackSeed = authType === 'server_link' ? 'SL' : authType === 'password' ? 'PW' : 'TG';
-      const seed = String(user.username || user.first_name || fallbackSeed).trim();
-      avatarEl.textContent = seed ? seed.slice(0, 2).toUpperCase() : fallbackSeed;
+      const seed = String(user.username || 'PW').trim();
+      avatarEl.textContent = seed ? seed.slice(0, 2).toUpperCase() : 'PW';
       avatarEl.title = display;
     }
     return me;

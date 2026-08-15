@@ -38,27 +38,73 @@
           data-login-method="password"
           data-i18n="auth.method.password"
         >账号密码</button>
-        <button
-          type="button"
-          class="login-method-tab"
-          id="telegramLoginTab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="telegramLoginPanel"
-          tabindex="-1"
-          data-login-method="telegram"
-          data-i18n="auth.method.telegram"
-        >Telegram</button>
       </div>
+
+      <section
+        class="login-method-panel"
+        id="registerPanel"
+        role="tabpanel"
+        aria-labelledby="passwordLoginTab"
+        hidden
+      >
+        <p class="login-hint" data-i18n="auth.register.hint">首次使用：创建管理员账号（仅首次可注册）</p>
+        <div class="login-alert" id="registerStatus" role="status" hidden></div>
+        <form id="registerForm" class="login-password-form" novalidate>
+          <label class="login-field" for="registerUsername">
+            <span data-i18n="auth.register.username">管理员用户名</span>
+            <input
+              class="login-input"
+              id="registerUsername"
+              name="username"
+              type="text"
+              autocomplete="username"
+              minlength="3"
+              maxlength="32"
+              required
+            >
+          </label>
+          <label class="login-field" for="registerPassword">
+            <span data-i18n="auth.register.password">密码（至少 8 位）</span>
+            <input
+              class="login-input"
+              id="registerPassword"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="128"
+              required
+            >
+          </label>
+          <label class="login-field" for="registerConfirmPassword">
+            <span data-i18n="auth.register.confirm_password">确认密码</span>
+            <input
+              class="login-input"
+              id="registerConfirmPassword"
+              name="confirm_password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              maxlength="128"
+              required
+            >
+          </label>
+          <button
+            type="submit"
+            class="btn primary login-button"
+            id="registerBtn"
+            data-i18n="auth.register.action"
+          >创建并登录</button>
+        </form>
+      </section>
 
       <section
         class="login-method-panel"
         id="passwordLoginPanel"
         role="tabpanel"
         aria-labelledby="passwordLoginTab"
-        
+        hidden
       >
-        
         <div class="login-alert" id="passwordLoginStatus" role="status" hidden></div>
         <form id="passwordLoginForm" class="login-password-form" novalidate>
           <label class="login-field" for="loginUsername">
@@ -114,32 +160,6 @@
             
           >登录</button>
         </form>
-      </section>
-
-      <section
-        class="login-method-panel"
-        id="telegramLoginPanel"
-        role="tabpanel"
-        aria-labelledby="telegramLoginTab"
-        hidden
-      >
-        
-        <div class="login-alert">
-          
-          已锁定 Telegram 用户：5388265006
-          
-          
-        </div>
-        
-        <div class="login-alert" id="loginStatus" role="status" hidden></div>
-        <div class="login-actions">
-          <button type="button" class="btn primary login-button" id="tgLoginBtn">
-            <svg class="tg-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M21.7 3.3 2.9 10.6c-1.3.5-1.3 1.2-.2 1.6l4.8 1.5 1.8 5.6c.2.7.4 1 .8 1 .4 0 .6-.2.9-.5l2.6-2.5 5 3.7c.9.5 1.5.2 1.7-.9l3.1-14.7c.3-1.3-.5-1.8-1.7-1.4ZM8.2 13.3l10.6-6.7c.5-.3.9-.1.6.2l-8.6 7.8-.3 3.4-2.3-4.7Z" fill="currentColor"/>
-            </svg>
-            <span data-i18n="auth.telegram.sign_in">使用 Telegram 登录</span>
-          </button>
-        </div>
       </section>
     </section>
   </main>

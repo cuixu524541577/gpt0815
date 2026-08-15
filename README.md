@@ -31,18 +31,18 @@ cd gpt-register-console
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. 初始化登录凭据（必做，否则无法登录）
-python web.py --init-credentials admin '你的强密码'
-
-# 3. 启动（默认仅 127.0.0.1；macOS 请用 --port 5001，
+# 2. 启动（默认仅 127.0.0.1；macOS 请用 --port 5001，
 #    因为系统"隔空播放"占用了 5000 端口，浏览器会连到它导致空白页）
 python web.py --port 5001
 
-# 或通过环境变量首启（docker 场景）
-ADMIN_USERNAME=admin ADMIN_PASSWORD='强密码' python web.py
+# 3. 浏览器打开 http://127.0.0.1:5001
+#    首次访问登录页会显示「创建管理员账号」表单（仅首次可注册），
+#    创建成功后自动登录。之后一律用账号密码登录。
 ```
 
-浏览器访问 http://127.0.0.1:5001 ，用刚设置的凭据登录。
+> 无人值守/容器场景可用环境变量首启自动创建凭据（跳过注册页）：
+> `ADMIN_USERNAME=admin ADMIN_PASSWORD='强密码' python web.py`
+> 或 CLI：`python web.py --init-credentials admin '强密码'`
 
 ### 跑测试（可选，验证部署正确）
 

@@ -15,7 +15,9 @@ _DATA_DIR = _Path(__file__).resolve().parent.parent / "data"
 _AUTH_BACKUP = None
 if (_DATA_DIR / "auth.json").exists():
     _AUTH_BACKUP = (_DATA_DIR / "auth.json").read_text(encoding="utf-8")
-A.set_credentials("smoke", "SmokeTest@123456")
+# 模拟全新部署（无凭据）：先删除既有凭据，验证"首次注册"流程
+if (_DATA_DIR / "auth.json").exists():
+    (_DATA_DIR / "auth.json").unlink()
 app = create_app()
 c = app.test_client()
 failures = []
@@ -24,6 +26,20 @@ def check(name, cond, extra=""):
     print(("✓" if cond else "✗"), name, extra)
     if not cond:
         failures.append(name)
+
+# 0. 首次注册（开源版首启：登录页创建管理员账号，无 Telegram 验证）
+check("未配置时注册弱密码 400", c.post("/api/auth/register",
+      json={"username": "firstadmin", "password": "short", "confirm_password": "short"}).status_code == 400)
+check("未配置时注册密码不一致 400", c.post("/api/auth/register",
+      json={"username": "firstadmin", "password": "FirstAdmin@123", "confirm_password": "Different@123"}).status_code == 400)
+check("首次注册创建管理员 200", c.post("/api/auth/register",
+      json={"username": "firstadmin", "password": "FirstAdmin@123", "confirm_password": "FirstAdmin@123"}).status_code == 200)
+check("注册后自动登录", c.get("/api/auth/me").get_json().get("authenticated") is True)
+check("凭据已配置后再次注册 403", c.post("/api/auth/register",
+      json={"username": "hacker", "password": "HackerPass@123", "confirm_password": "HackerPass@123"}).status_code == 403)
+check("Telegram 登录接口已移除 404", c.post("/api/auth/telegram/start").status_code == 404)
+A.set_credentials("smoke", "SmokeTest@123456")
+c.post("/api/auth/logout")  # 清掉注册流程的登录态，回到未登录状态
 
 # 1. 认证
 check("登录页 200", c.get("/login").status_code == 200)

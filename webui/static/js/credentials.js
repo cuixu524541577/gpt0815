@@ -1,4 +1,4 @@
-// Telegram 会话设置或重置 WebUI 本地登录账号。
+// 重置 WebUI 本地登录账号（已登录时，用户菜单入口）。
 (function () {
   window.GFR = window.GFR || {};
 
@@ -57,9 +57,8 @@
 
   function renderAction() {
     if (!elements.action) return;
-    const telegramSession = state.authType === 'telegram';
     const label = actionText();
-    elements.action.hidden = !telegramSession;
+    elements.action.hidden = false;
     elements.action.title = label;
     elements.action.setAttribute('aria-label', label);
     if (elements.actionLabel) elements.actionLabel.textContent = label;
@@ -97,7 +96,7 @@
   }
 
   function open(mode) {
-    if (state.authType !== 'telegram' || !elements.modal || !elements.form) return;
+    if (!elements.modal || !elements.form) return;
     if (state.closeTimer) {
       clearTimeout(state.closeTimer);
       state.closeTimer = null;
@@ -122,7 +121,7 @@
 
   async function save(event) {
     event.preventDefault();
-    if (state.busy || state.authType !== 'telegram' || !elements.form?.reportValidity()) return;
+    if (state.busy || !elements.form?.reportValidity()) return;
     if (elements.password.value !== elements.confirmPassword.value) {
       setStatus(t('auth.credentials.password_mismatch', '两次输入的密码不一致'), 'error');
       elements.confirmPassword.focus();
@@ -154,7 +153,7 @@
   }
 
   async function skip() {
-    if (state.busy || state.mode !== 'initial' || state.authType !== 'telegram') return;
+    if (state.busy || state.mode !== 'initial') return;
     setBusy(true);
     setStatus('');
     try {
@@ -196,7 +195,7 @@
     state.configured = Boolean(me?.credentials_configured);
     state.username = String(me?.credentials_username || '').trim();
     renderAction();
-    if (state.authType === 'telegram' && me?.credential_prompt_required && !state.autoOpened) {
+    if (me?.credential_prompt_required && !state.autoOpened) {
       state.autoOpened = true;
       open('initial');
     }

@@ -242,22 +242,34 @@ def register_auth_routes(app) -> None:
             "message_key": "auth.server_link.invalid",
         }), 401
 
-    @app.post("/api/auth/telegram/start")
-    def api_auth_telegram_start():
-        return jsonify({
-            "ok": False,
-            "error": "Telegram 登录未启用",
-            "error_code": "telegram_disabled",
-        }), 501
+    @app.post("/api/auth/register")
+    def api_auth_register():
+        """首次注册：仅当尚未配置登录凭据时可用，创建后直接登录。
 
-    @app.post("/api/auth/telegram/status")
-    def api_auth_telegram_status():
-        return jsonify({
-            "ok": False,
-            "status": "missing_request",
-            "error": "尚未创建登录授权会话",
-            "message_key": "legacy.auth.df8bed884a39",
-        }), 400
+        开源版首启流程：访问登录页 → 创建管理员账号 → 自动登录。
+        凭据已配置后本接口恒拒绝，防止越权覆盖。
+        """
+        if credentials_configured():
+            return jsonify({"ok": False, "error": "登录凭据已配置，请直接登录"}), 403
+        data = request.get_json(silent=True) or {}
+        username = (data.get("username") or "").strip()
+        password = data.get("password") or ""
+        confirm = data.get("confirm_password") or ""
+        if not username:
+            return jsonify({"ok": False, "error": "用户名不能为空"}), 400
+        if len(password) < 8:
+            return jsonify({"ok": False, "error": "密码至少 8 位"}), 400
+        if password != confirm:
+            return jsonify({"ok": False, "error": "两次输入的密码不一致"}), 400
+        ip = _client_ip()
+        set_credentials(username, password)
+        session.clear()
+        session["authenticated"] = True
+        session["username"] = username
+        session.permanent = True
+        _audit("register", username, ip)
+        _audit("login_success", username, ip)
+        return jsonify({"ok": True, "credentials": {"configured": True, "username": username}})
 
     @app.get("/api/auth/credentials")
     @app.post("/api/auth/credentials")

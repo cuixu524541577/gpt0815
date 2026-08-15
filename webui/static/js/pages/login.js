@@ -1,23 +1,20 @@
-// WebUI username/password and Telegram sign-in page.
+// WebUI 登录页：首次创建管理员账号（注册式）+ 账号密码登录。
 (function () {
   async function initLoginPage() {
     await (window.GFR.i18n?.ready || Promise.resolve());
     const { t } = window.GFR.i18n;
     const credentialsConfigured = document.body.dataset.credentialsConfigured === 'true';
-    const methodTabs = Array.from(document.querySelectorAll('[data-login-method]'));
-    const methodPanels = {
-      password: document.getElementById('passwordLoginPanel'),
-      telegram: document.getElementById('telegramLoginPanel'),
-    };
+
+    const registerPanel = document.getElementById('registerPanel');
+    const registerForm = document.getElementById('registerForm');
+    const registerButton = document.getElementById('registerBtn');
+    const registerStatus = document.getElementById('registerStatus');
+    const loginPanel = document.getElementById('passwordLoginPanel');
     const passwordForm = document.getElementById('passwordLoginForm');
     const passwordButton = document.getElementById('passwordLoginBtn');
     const passwordStatus = document.getElementById('passwordLoginStatus');
     const passwordInput = document.getElementById('loginPassword');
     const visibilityButton = document.getElementById('loginPasswordVisibility');
-    const telegramButton = document.getElementById('tgLoginBtn');
-    const telegramStatus = document.getElementById('loginStatus');
-    let pollTimer = null;
-    let pollUntil = 0;
 
     function setStatus(element, message, tone = '') {
       if (!element) return;
@@ -25,20 +22,6 @@
       element.hidden = !message;
       element.classList.toggle('error', tone === 'error');
       element.classList.toggle('success', tone === 'success');
-    }
-
-    function activateLoginMethod(method, { focus = false } = {}) {
-      if (!methodPanels[method]) return;
-      methodTabs.forEach(tab => {
-        const active = tab.dataset.loginMethod === method;
-        tab.classList.toggle('active', active);
-        tab.setAttribute('aria-selected', String(active));
-        tab.tabIndex = active ? 0 : -1;
-        if (active && focus) tab.focus();
-      });
-      Object.entries(methodPanels).forEach(([name, panel]) => {
-        if (panel) panel.hidden = name !== method;
-      });
     }
 
     async function postJson(url, body) {
@@ -59,30 +42,48 @@
       return data;
     }
 
-    function setPasswordBusy(busy) {
-      if (passwordButton) passwordButton.disabled = busy || !credentialsConfigured;
-      passwordForm?.querySelectorAll('input, .password-visibility').forEach(control => {
-        control.disabled = busy || !credentialsConfigured;
-      });
+    function setBusy(button, busy) {
+      if (button) button.disabled = busy;
     }
 
+    // ---------------- 首次注册（仅未配置凭据时显示） ----------------
+    async function submitRegister(event) {
+      event.preventDefault();
+      if (!registerForm?.reportValidity()) return;
+      const username = document.getElementById('registerUsername')?.value || '';
+      const password = document.getElementById('registerPassword')?.value || '';
+      const confirm = document.getElementById('registerConfirmPassword')?.value || '';
+      if (password !== confirm) {
+        setStatus(registerStatus, t('auth.register.password_mismatch', {}, '两次输入的密码不一致'), 'error');
+        document.getElementById('registerConfirmPassword')?.focus();
+        return;
+      }
+      setBusy(registerButton, true);
+      setStatus(registerStatus, '');
+      try {
+        await postJson('/api/auth/register', { username, password, confirm_password: confirm });
+        setStatus(registerStatus, t('auth.register.success', {}, '创建成功，正在进入…'), 'success');
+        setTimeout(() => { window.location.href = '/'; }, 250);
+      } catch (error) {
+        setBusy(registerButton, false);
+        setStatus(registerStatus, error.message || t('errors.common.operation_failed', {}, '创建失败，请重试'), 'error');
+      }
+    }
+
+    // ---------------- 账号密码登录 ----------------
     async function submitPasswordLogin(event) {
       event.preventDefault();
-      if (!passwordForm || !credentialsConfigured) return;
-      if (!passwordForm.reportValidity()) return;
+      if (!passwordForm?.reportValidity()) return;
       const username = document.getElementById('loginUsername')?.value || '';
       const password = passwordInput?.value || '';
-      setPasswordBusy(true);
+      setBusy(passwordButton, true);
       setStatus(passwordStatus, '');
       try {
-        await postJson('/api/auth/password/login', {
-          username,
-          password,
-        });
+        await postJson('/api/auth/password/login', { username, password });
         setStatus(passwordStatus, t('auth.password.success', {}, '登录成功，正在进入…'), 'success');
         setTimeout(() => { window.location.href = '/'; }, 250);
       } catch (error) {
-        setPasswordBusy(false);
+        setBusy(passwordButton, false);
         setStatus(passwordStatus, error.message || t('auth.password.invalid', {}, '用户名或密码错误'), 'error');
       }
     }
@@ -100,80 +101,18 @@
       passwordInput.focus();
     }
 
-    function stopPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = null;
-    }
-
-    async function pollStatus() {
-      try {
-        if (pollUntil && Date.now() > pollUntil) {
-          stopPolling();
-          if (telegramButton) telegramButton.disabled = false;
-          setStatus(telegramStatus, t('auth.telegram.expired'), 'error');
-          return;
-        }
-        const data = await postJson('/api/auth/telegram/status');
-        if (data.status === 'approved' && data.authenticated) {
-          stopPolling();
-          setStatus(telegramStatus, t('auth.telegram.success'), 'success');
-          setTimeout(() => { window.location.href = '/'; }, 300);
-          return;
-        }
-        if (data.status === 'denied' || data.status === 'access_denied') {
-          stopPolling();
-          if (telegramButton) telegramButton.disabled = false;
-          setStatus(telegramStatus, t('auth.telegram.denied'), 'error');
-          return;
-        }
-        setStatus(telegramStatus, t('auth.telegram.confirm'));
-      } catch (error) {
-        stopPolling();
-        if (telegramButton) telegramButton.disabled = false;
-        setStatus(telegramStatus, error.message || t('auth.telegram.failed'), 'error');
-      }
-    }
-
-    async function startTelegramLogin() {
-      stopPolling();
-      setStatus(telegramStatus, t('auth.telegram.opening'));
-      if (telegramButton) telegramButton.disabled = true;
-
-      // Open synchronously so browsers do not block the popup.
-      const popup = window.open('about:blank', '_blank');
-      try {
-        const data = await postJson('/api/auth/telegram/start');
-        if (popup) popup.location.href = data.telegram_url;
-        else window.location.href = data.telegram_url;
-        pollUntil = Date.now() + Math.max(30, data.expires_in || 600) * 1000;
-        setStatus(telegramStatus, t('auth.telegram.confirm'));
-        pollTimer = setInterval(pollStatus, 2000);
-        setTimeout(pollStatus, 800);
-      } catch (error) {
-        if (popup) popup.close();
-        if (telegramButton) telegramButton.disabled = false;
-        setStatus(telegramStatus, error.message || t('auth.telegram.failed'), 'error');
-      }
-    }
-
-    methodTabs.forEach((tab, index) => {
-      tab.addEventListener('click', () => activateLoginMethod(tab.dataset.loginMethod));
-      tab.addEventListener('keydown', event => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        let nextIndex = index;
-        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + methodTabs.length) % methodTabs.length;
-        if (event.key === 'ArrowRight') nextIndex = (index + 1) % methodTabs.length;
-        if (event.key === 'Home') nextIndex = 0;
-        if (event.key === 'End') nextIndex = methodTabs.length - 1;
-        activateLoginMethod(methodTabs[nextIndex].dataset.loginMethod, { focus: true });
-      });
-    });
-
+    registerForm?.addEventListener('submit', submitRegister);
     passwordForm?.addEventListener('submit', submitPasswordLogin);
     visibilityButton?.addEventListener('click', passwordVisibility);
-    telegramButton?.addEventListener('click', startTelegramLogin);
-    activateLoginMethod(credentialsConfigured ? 'password' : 'telegram');
+
+    // 未配置凭据 → 显示注册面板；已配置 → 显示登录面板
+    if (registerPanel) registerPanel.hidden = credentialsConfigured;
+    if (loginPanel) loginPanel.hidden = !credentialsConfigured;
+    if (!credentialsConfigured) {
+      setTimeout(() => document.getElementById('registerUsername')?.focus(), 0);
+    } else {
+      setTimeout(() => document.getElementById('loginUsername')?.focus(), 0);
+    }
   }
 
   initLoginPage();

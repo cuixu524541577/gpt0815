@@ -1094,7 +1094,7 @@
   <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolCardModalTitle">
     <div class="modal-main">
       <h3 id="cardPoolCardModalTitle">添加卡片</h3>
-      <form id="cardPoolCardForm" class="upi-modal-form">
+      <form id="cardPoolCardForm" class="upi-modal-form" novalidate>
         <label><span>卡号</span><input id="cardPoolCardNumber" type="text" autocomplete="off" placeholder="16 位卡号" required></label>
         <label><span>有效期</span><input id="cardPoolCardExpires" type="text" autocomplete="off" placeholder="MM/YY 或 MM/YYYY" required></label>
         <label><span>CVV</span><input id="cardPoolCardCvv" type="text" autocomplete="off" placeholder="3-4 位" required></label>
@@ -1130,7 +1130,7 @@
   <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolPaypalModalTitle">
     <div class="modal-main">
       <h3 id="cardPoolPaypalModalTitle">添加 PayPal 账号</h3>
-      <form id="cardPoolPaypalForm" class="upi-modal-form">
+      <form id="cardPoolPaypalForm" class="upi-modal-form" novalidate>
         <label><span>手机号（带国家码）</span><input id="cardPoolPaypalPhone" type="text" autocomplete="off" placeholder="+10000000001" required></label>
         <label><span>OTP 短信 API</span><input id="cardPoolPaypalSmsUrl" type="text" autocomplete="off" placeholder="http://.../get_sms?key=..."></label>
         <label><span>备注</span><input id="cardPoolPaypalNotes" type="text" autocomplete="off"></label>
@@ -1147,7 +1147,7 @@
   <div class="modal-card upi-modal-card" role="dialog" aria-modal="true" aria-labelledby="cardPoolManualPayTitle">
     <div class="modal-main">
       <h3 id="cardPoolManualPayTitle">手动支付</h3>
-      <form id="cardPoolManualPayForm" class="upi-modal-form">
+      <form id="cardPoolManualPayForm" class="upi-modal-form" novalidate>
         <label><span>支付链接</span><input id="cardPoolManualPayLink" type="text" autocomplete="off" placeholder="https://checkout.stripe.com/... 或 UPI 提取结果链接" required></label>
         <label><span>支付方式</span>
           <select id="cardPoolManualPayMethod">
@@ -1228,7 +1228,7 @@
 <script src="/static/js/pages/config_sms.js?v=20260714-pool-bulk-management" defer></script>
 <script src="/static/js/pages/config.js?v=20260815-reg-validation" defer></script>
 <script src="/static/js/pages/upi.js?v=20260728-upi-task-logs" defer></script>
-<script src="/static/js/pages/cardpool.js?v=20260815-card-validation" defer></script>
+<script src="/static/js/pages/cardpool.js?v=20260815-novalidate-forms" defer></script>
 <script src="/static/js/system_metrics.js?v=20260718-runtime-worker-recommendation" defer></script>
 <script src="/static/js/credentials.js?v=20260815-password-credential" defer></script>
 <script src="/static/js/app.js?v=20260815-card-pool" defer></script>

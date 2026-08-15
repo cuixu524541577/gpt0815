@@ -263,8 +263,10 @@ async function saveCard() {
 }
 
 async function savePaypal() {
+  const phone = $('#cardPoolPaypalPhone').value.trim();
+  if (!phone) { showToast('手机号不能为空（带国家码，如 +10000000001）', 'error'); $('#cardPoolPaypalPhone').focus(); return; }
   const payload = {
-    phone: $('#cardPoolPaypalPhone').value.trim(),
+    phone: phone,
     sms_api_url: $('#cardPoolPaypalSmsUrl').value.trim(),
     notes: $('#cardPoolPaypalNotes').value.trim(),
   };

@@ -114,6 +114,8 @@ def _request_grizzly(http: CurlSession, params: dict) -> str:
     text = (resp.text or "").strip()
 
     # 公共错误码（任何 action 都可能返回）
+    if text == "NO_KEY":
+        raise SmsProviderError("接码平台 API key 未配置或无效（NO_KEY），请在面板「接码配置」填写 SMS_API_KEY")
     if text == "BAD_KEY":
         raise SmsProviderError("接码平台 API key 无效（BAD_KEY）")
     if text == "NO_BALANCE":

@@ -464,6 +464,28 @@ def _accounts_features() -> dict:
     return {"rt_extract_no_sms": True, "trial_check_enabled": True}
 
 
+def _automation_task_public(task: dict) -> dict:
+    """补全前端依赖的统计字段（列表进度条/详情页），并保证明细项有 id。
+
+    存储字段是 account_total/account_processed/account_failed，
+    前端读 total_count/success_count/failed_count/cancelled_count/interrupted_count。
+    """
+    out = dict(task or {})
+    items = [i for i in (out.get("items") or []) if isinstance(i, dict)]
+    for idx, item in enumerate(items, 1):
+        item.setdefault("id", idx)
+    statuses = [str(i.get("status") or "") for i in items]
+    out["items"] = items
+    out["total_count"] = int(out.get("account_total") or len(out.get("identities") or []) or 0)
+    out["success_count"] = sum(1 for s in statuses if s == "success")
+    out["failed_count"] = sum(1 for s in statuses if s == "failed")
+    out["cancelled_count"] = sum(1 for s in statuses if s in ("cancelled", "stopped", "skipped"))
+    out["interrupted_count"] = sum(1 for s in statuses if s == "interrupted")
+    out["account_processed"] = int(out.get("account_processed") or 0) or len(items)
+    out["account_failed"] = int(out.get("account_failed") or 0) or out["failed_count"]
+    return out
+
+
 def _resolve_identities(identities: list) -> list:
     """把身份列表解析为账号行（不存在则忽略）。"""
     out = []
@@ -1504,7 +1526,7 @@ def register_compat_routes(app) -> None:
         tasks = sorted(tasks, key=lambda t: t.get("created_at", ""), reverse=True)
         total = len(tasks)
         start = (page - 1) * per_page
-        items = tasks[start:start + per_page]
+        items = [_automation_task_public(t) for t in tasks[start:start + per_page]]
         running = sum(1 for t in tasks if t.get("status") in ("queued", "running"))
         today = _now()[:10]
         today_done = sum(1 for t in tasks if t.get("status") == "completed" and str(t.get("completed_at", ""))[:10] == today)
@@ -1674,18 +1696,37 @@ def register_compat_routes(app) -> None:
                 return {"ok": False, "status": "unsupported", "message": f"任务类型 {task_type} 暂不支持"}
 
             def _bg_execute():
+                """后台执行；任何异常都写进任务记录，避免任务无声卡死。"""
+                try:
+                    _bg_execute_inner()
+                except Exception as exc:
+                    logger.exception("[自动化任务] #%s 后台执行异常", task["id"])
+                    try:
+                        cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
+                        if cur is not None:
+                            cur["status"] = "failed"
+                            cur["error"] = f"后台执行异常：{type(exc).__name__}: {exc}"[:500]
+                            cur["completed_at"] = _now()
+                            _save("automation_tasks", _load("automation_tasks", []) or [])
+                    except Exception:
+                        pass
+
+            def _bg_execute_inner():
                 cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
                 if cur is None:
                     return
                 cur["status"] = "running"
                 _save("automation_tasks", _load("automation_tasks", []) or [])
                 failed = 0
+                item_seq = 0
                 for email in identities:
                     res = _run_one(email)
                     if not res.get("ok"):
                         failed += 1
                         _record_alert("automation_task", f"任务#{task['id']} {task_type} 失败: {email} - {res.get('message', '')}")
+                    item_seq += 1
                     item = {
+                        "id": item_seq,
                         "identity_snapshot": email,
                         "status": res.get("status", "failed"),
                         "result_summary": res.get("message", ""),
@@ -1712,7 +1753,7 @@ def register_compat_routes(app) -> None:
 
             _t.Thread(target=_bg_execute, name=f"auto-task-{task['id']}", daemon=True).start()
 
-        return jsonify({"ok": True, "task": task, "account_total": len(rows), "skipped": 0})
+        return jsonify({"ok": True, "task": _automation_task_public(task), "account_total": len(rows), "skipped": 0})
 
     @app.get("/api/automation-tasks/<int:task_id>")
     def api_automation_tasks_get(task_id: int):
@@ -1720,7 +1761,7 @@ def register_compat_routes(app) -> None:
         task = next((t for t in tasks if t.get("id") == task_id), None)
         if task is None:
             return jsonify({"ok": False, "error": "任务不存在"}), 404
-        return jsonify({"ok": True, "task": task})
+        return jsonify({"ok": True, "task": _automation_task_public(task)})
 
     @app.get("/api/automation-tasks/<int:task_id>/items")
     def api_automation_tasks_items(task_id: int):
@@ -1738,9 +1779,39 @@ def register_compat_routes(app) -> None:
             "pagination": {"page": page, "pages": max(1, (total + page_size - 1) // page_size), "page_size": page_size, "total": total},
         })
 
-    @app.get("/api/automation-tasks/<int:task_id>/items/<item_id>/log")
-    def api_automation_tasks_item_log(task_id: int, item_id: str):
-        return jsonify({"ok": True, "log": ""})
+    @app.get("/api/automation-tasks/<int:task_id>/items/<int:item_id>/log")
+    def api_automation_tasks_item_log(task_id: int, item_id: int):
+        """任务明细日志：codex_retry 读 codex-retry-{email}.log（与补跑日志同源）。"""
+        tasks = _load("automation_tasks", []) or []
+        task = next((t for t in tasks if t.get("id") == task_id), None)
+        if task is None:
+            return jsonify({"ok": False, "error": "任务不存在"}), 404
+        items = [i for i in (task.get("items") or []) if isinstance(i, dict)]
+        item = next((i for i in items if int(i.get("id") or 0) == item_id), None)
+        log_text = ""
+        if item:
+            email = str(item.get("identity_snapshot") or "").strip()
+            if email:
+                safe = email.replace("/", "_").replace("\\", "_").replace(":", "_")
+                p = Path(__file__).resolve().parent.parent / "注册日志" / f"codex-retry-{safe}.log"
+                if p.exists():
+                    try:
+                        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+                        log_text = "\n".join(lines[-300:])
+                    except OSError:
+                        pass
+        signature = hashlib.md5(log_text.encode("utf-8", errors="replace")).hexdigest()[:16]
+        if request.args.get("signature") == signature:
+            return jsonify({"ok": True, "not_modified": True})
+        return jsonify({
+            "ok": True,
+            "log": log_text,
+            "legacy": True,
+            "events": [],
+            "signature": signature,
+            "expired": False,
+            "not_modified": False,
+        })
 
     @app.post("/api/automation-tasks/<int:task_id>/stop")
     def api_automation_tasks_stop(task_id: int):

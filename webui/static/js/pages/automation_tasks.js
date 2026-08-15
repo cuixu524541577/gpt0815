@@ -23,7 +23,7 @@ const STATUS_LABELS = {
   interrupted: '已中断',
   success: '成功',
 };
-const ACTIVE_STATUSES = new Set(['pending', 'running', 'stopping']);
+const ACTIVE_STATUSES = new Set(['pending', 'queued', 'running', 'stopping']);
 const TERMINAL_STATUSES = new Set(['completed', 'partial', 'failed', 'stopped', 'cancelled', 'interrupted']);
 const state = {
   page: 1,

@@ -21,6 +21,7 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from flask import Response, jsonify, request
 
@@ -88,6 +89,47 @@ def _check_import_size(text: str) -> str | None:
 
 
 # ---------------- 代理选择（按任务随机轮换） ----------------
+_PROXY_SCHEMES = {"http", "https", "socks4", "socks5", "socks5h"}
+
+
+def _parse_proxy_endpoint(proxy: str) -> tuple[str, int]:
+    """解析代理地址并返回用于 TCP 连通性检查的 host/port。
+
+    支持带认证信息的标准代理 URL，例如：
+    ``socks5://user:password@host:port``。
+    同时保留旧版 ``host:port`` 和 ``http://host:port`` 格式。
+    """
+    text = str(proxy or "").strip()
+    if not text:
+        raise ValueError("empty proxy")
+
+    # 没有协议前缀时，使用 // 让 urlsplit 按 authority 解析 host:port。
+    parsed = urlsplit(text if "://" in text else f"//{text}")
+    scheme = (parsed.scheme or "").lower()
+    if scheme and scheme not in _PROXY_SCHEMES:
+        raise ValueError("unsupported proxy scheme")
+
+    host = parsed.hostname
+    if not host:
+        raise ValueError("missing proxy host")
+
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("invalid proxy port") from exc
+
+    # 与旧实现保持兼容：无端口的 HTTP/裸地址默认使用 80；
+    # SOCKS 地址必须显式填写端口，避免误连错误服务。
+    if port is None:
+        if scheme in ("", "http", "https"):
+            port = 80
+        else:
+            raise ValueError("missing proxy port")
+    if not 1 <= port <= 65535:
+        raise ValueError("invalid proxy port")
+    return host, port
+
+
 def _proxy_for_task() -> str:
     """每个任务从代理池随机选一个代理（池空返回空串）。
 
@@ -2439,11 +2481,9 @@ def register_compat_routes(app) -> None:
             proxy = str(proxy).strip()
             if not proxy:
                 continue
-            host, port = None, None
-            m = re.match(r"^(?:https?://)?([^:/]+)(?::(\d+))?$", proxy)
-            if m:
-                host, port = m.group(1), int(m.group(2) or 80)
-            if not host:
+            try:
+                host, port = _parse_proxy_endpoint(proxy)
+            except ValueError:
                 results.append({"proxy": proxy, "ok": False, "error": "地址格式无效"})
                 continue
             try:

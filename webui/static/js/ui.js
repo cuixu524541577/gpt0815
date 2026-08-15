@@ -240,6 +240,7 @@
       });
     }
     if (type === 'int') return `<input class="${cls}" type="number" ${dataKey}${placeholder}${min}${max} value="${escRaw(value)}">`;
+    if (type === 'date') return `<input class="${cls}" type="date" ${dataKey}${placeholder} value="${escRaw(value || '')}">`;
     if (type === 'list_str_multiline') return `<textarea class="${cls}" ${dataKey}${placeholder}${rows}>${escRaw((value || []).join('\n'))}</textarea>`;
     if (opts.secret) return `<input class="${cls}" type="password" autocomplete="off" ${dataKey}${placeholder} value="${escRaw(value || '')}">`;
     return `<input class="${cls}" type="text" ${dataKey}${placeholder} value="${escRaw(value)}">`;

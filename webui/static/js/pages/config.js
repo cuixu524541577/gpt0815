@@ -361,7 +361,7 @@
     const sourceScope = fieldScopeAttr(f);
     const control = controlHtml({
       key: f.key,
-      type: f.type,
+      type: f.key === 'REGISTER_BIRTHDAY' ? 'date' : f.type,
       value: f.value,
       secret: f.secret,
       options: fieldOptions(f),

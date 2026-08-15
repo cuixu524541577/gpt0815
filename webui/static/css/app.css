@@ -2304,6 +2304,9 @@ tr:last-child td { border-bottom: 0; }
   color: #bfdbfe;
 }
 .proxy-test-actions {
+input[type="date"].ui-control {
+  color-scheme: dark;  /* 原生日历控件适配深色主题 */
+}
 .proxy-dynamic-section {
   margin-top: 16px;
   border: 1px solid rgba(148, 163, 184, .16);

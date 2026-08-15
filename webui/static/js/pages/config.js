@@ -689,6 +689,22 @@
           ${field ? `<div class="config-field-grid proxy-pool-panel-grid">${renderField(field)}</div>` : noticeHtml('warning', '当前没有可编辑字段。', '无配置项')}
         </section>`;
     }).join('');
+    // 动态住宅代理池配置字段（来源二选一：api / manual）
+    const dynamicFields = [
+      fieldsByKey.PROXY_DYNAMIC_ENABLED,
+      fieldsByKey.PROXY_DYNAMIC_MODE,
+      fieldsByKey.PROXY_DYNAMIC_MANUAL_LIST,
+      fieldsByKey.PROXY_DYNAMIC_API_URL,
+      fieldsByKey.PROXY_DYNAMIC_API_AUTH,
+      fieldsByKey.PROXY_DYNAMIC_REFRESH_MINUTES,
+      fieldsByKey.PROXY_DYNAMIC_MAX_POOL,
+    ].filter(Boolean);
+    const dynamicHtml = dynamicFields.length
+      ? `<div class="config-field-grid proxy-mode-grid" style="margin-top:16px">
+          <div class="config-source-hint"><strong>动态住宅代理池配置</strong><p>来源二选一：api = 从厂商 API 拉取；manual = 手动粘贴代理列表（不走 API）。开启后注册任务优先从动态池随机取 IP。</p></div>
+          ${dynamicFields.map(renderField).join('')}
+        </div>`
+      : '';
     return `
       ${noticeHtml(
         'warning',
@@ -696,6 +712,7 @@
         '',
       )}
       ${modeHtml}
+      ${dynamicHtml}
       <div class="proxy-pool-tabs">
         <div class="config-tabs proxy-pool-tabbar" role="tablist" aria-label="代理池分类">
           ${tabButtons}

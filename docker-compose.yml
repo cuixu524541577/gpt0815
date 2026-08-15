@@ -1,29 +1,41 @@
-version: "3.8"
-
 services:
   console:
     build: .
+    image: gpt-register-console:latest
     container_name: gpt-register-console
     restart: unless-stopped
+    # 仅本地回环映射；对外访问请用 nginx 反代 + HTTPS（见 deploy/nginx.conf）
     ports:
-      # 仅本地回环映射；对外访问请用 nginx 反代 + HTTPS
       - "127.0.0.1:5001:5001"
     environment:
+      # 首次启动自动创建管理员凭据（.env 里配置；已配置过则忽略）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Telegram 通知（可选）
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      # 时区（影响日志时间戳）
+      - TZ=${TZ:-Asia/Shanghai}
     volumes:
+      # 运行数据（账号库/任务/日志/备份）——必须持久化
       - ./data:/app/data
       - ./codex_accounts:/app/codex_accounts
       - ./注册日志:/app/注册日志
       - ./backups:/app/backups
+      # 配置文件（配置页的修改会写回这里）
       - ./config:/app/config
+      # 邮箱素材（可选，首次部署可留空文件）
       - ./用于注册的邮箱.txt:/app/用于注册的邮箱.txt
       - ./注册成功的邮箱.txt:/app/注册成功的邮箱.txt
+      - ./注册成功的token.txt:/app/注册成功的token.txt
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/login', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s

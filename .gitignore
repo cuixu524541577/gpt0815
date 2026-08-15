@@ -69,3 +69,6 @@ data/
 注册日志/
 sentinel-work/
 *.log
+
+# 环境变量（真实凭据，绝不提交）
+.env

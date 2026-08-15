@@ -2,9 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 核心依赖（浏览器驱动可选，不装不影响协议注册）
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 核心依赖（协议注册必需）；浏览器驱动（selenium/playwright/cloakbrowser）
+# 按需手动安装——Docker 里不需要它们，装反而拖慢构建且易失败
+COPY requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
 
 COPY . .
 

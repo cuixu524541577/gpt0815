@@ -167,10 +167,16 @@ def _connect_imap() -> imaplib.IMAP4_SSL:
     try:
         mail = imaplib.IMAP4_SSL(server, port)
         mail.login(qq_email, password)
-        mail.select("INBOX")
+        # select 失败不会抛异常（返回 NO 时连接停留在 AUTH 状态），
+        # 不检查返回值的话下一步 SEARCH 会报 "illegal in state AUTH"。
+        typ, data = mail.select("INBOX")
+        if typ != "OK":
+            raise QQMailClientError(f"IMAP 选择收件箱失败: {typ} {data!r}")
         return mail
     except imaplib.IMAP4.error as exc:
         raise QQMailClientError(f"IMAP 登录失败: {exc}")
+    except QQMailClientError:
+        raise
     except Exception as exc:
         raise QQMailClientError(f"IMAP 连接失败: {exc}")
 
@@ -291,6 +297,13 @@ def fetch_latest_otp(
             messages = _search_messages(mail, after_dt=after_dt)
         except QQMailClientError as exc:
             logger.warning(f"[QQMail] IMAP 连接失败: {exc}")
+            messages = []
+        except imaplib.IMAP4.error as exc:
+            # 协议级错误（如 SELECT 未生效导致 SEARCH 非法）：本轮回空，下一轮重连重试
+            logger.warning(f"[QQMail] IMAP 协议错误（下一轮重试）: {exc}")
+            messages = []
+        except Exception as exc:
+            logger.warning(f"[QQMail] IMAP 轮询异常（下一轮重试）: {type(exc).__name__}: {exc}")
             messages = []
         finally:
             if mail:

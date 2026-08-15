@@ -180,3 +180,24 @@ def test_lajiao_json_with_username_password():
     body = '{"data": {"list": [{"ip": "1.2.3.4", "port": 8080, "username": "u", "password": "p"}]}}'
     parsed = pp.parse_proxy_response(body, "application/json")
     assert parsed == ["http://u:p@1.2.3.4:8080"]
+
+
+def test_whitelist_error_message(monkeypatch):
+    """辣椒等厂商返回 'not added to whitelist' 时给出明确指引。"""
+    import requests as _req
+
+    class FakeResp:
+        status_code = 200
+        text = "113.234.144.120 not added to whitelist"
+        headers = {"Content-Type": "text/plain"}
+    monkeypatch.setattr(pp, "_cfg", lambda name, default=None: {
+        "PROXY_DYNAMIC_ENABLED": "true",
+        "PROXY_DYNAMIC_MODE": "api",
+        "PROXY_DYNAMIC_API_URL": "http://api.lajiaohttp.com/api/extract_ip",
+        "PROXY_DYNAMIC_API_AUTH": "",
+        "PROXY_DYNAMIC_REFRESH_MINUTES": 30,
+        "PROXY_DYNAMIC_MAX_POOL": 200,
+    }.get(name, default))
+    monkeypatch.setattr(_req, "get", lambda *a, **k: FakeResp())
+    with pytest.raises(RuntimeError, match="白名单"):
+        pp.fetch_dynamic_proxies()

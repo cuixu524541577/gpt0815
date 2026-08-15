@@ -298,7 +298,17 @@ def fetch_dynamic_proxies(timeout: float = 20.0) -> list[str]:
         raise RuntimeError(f"动态代理 API HTTP {resp.status_code}: {(resp.text or '')[:200]}")
     parsed = parse_proxy_response(resp.text, resp.headers.get("Content-Type", ""))
     if not parsed:
-        raise RuntimeError("动态代理 API 返回为空或无法解析")
+        # 带上原始响应前 200 字符，并识别常见错误（白名单/拒绝/认证失败）
+        snippet = " ".join((resp.text or "").split())[:200]
+        low = (resp.text or "").lower()
+        if "whitelist" in low:
+            raise RuntimeError(
+                f"动态代理 API 未授权：{snippet or '(空响应)'}（请到厂商后台把当前服务器公网 IP 加入白名单）")
+        if "forbidden" in low or "access denied" in low or "invalid ip" in low:
+            raise RuntimeError(f"动态代理 API 拒绝访问：{snippet or '(空响应)'}")
+        if "unauthorized" in low or "invalid key" in low or "bad key" in low:
+            raise RuntimeError(f"动态代理 API 认证失败：{snippet or '(空响应)'}")
+        raise RuntimeError(f"动态代理 API 返回为空或无法解析：{snippet or '(空响应)'}")
     return parsed
 
 

@@ -141,3 +141,42 @@ def test_manual_mode_empty_list_raises(monkeypatch):
     import pytest as _pt
     with _pt.raises(RuntimeError, match="手动代理列表为空"):
         pp.fetch_dynamic_proxies()
+
+
+# ------------------------------------------------------------
+# 辣椒 HTTP（lajiaohttp）支持
+# API: http://api.lajiaohttp.com/api/extract_ip?regions=us&num=10&protocol=http&type=txt&cate=1
+# 白名单免账密认证；txt 每行 ip:port；json 常见结构兼容
+# ------------------------------------------------------------
+def test_lajiao_txt_format():
+    """辣椒 type=txt：每行 ip:port。"""
+    body = "1.2.3.4:8080\n5.6.7.8:9090\n"
+    parsed = pp.parse_proxy_response(body, "text/plain")
+    assert parsed == ["1.2.3.4:8080", "5.6.7.8:9090"]
+
+
+def test_lajiao_txt_with_socks5():
+    """辣椒 protocol=socks5 时返回 socks5:// 前缀行。"""
+    body = "socks5://1.2.3.4:1080\nsocks5://5.6.7.8:1080\n"
+    parsed = pp.parse_proxy_response(body)
+    assert parsed == ["socks5://1.2.3.4:1080", "socks5://5.6.7.8:1080"]
+
+
+def test_lajiao_json_string_list():
+    """辣椒 type=json 返回字符串数组（常见实现）。"""
+    body = '["1.2.3.4:8080", "5.6.7.8:9090"]'
+    parsed = pp.parse_proxy_response(body, "application/json")
+    assert parsed == ["1.2.3.4:8080", "5.6.7.8:9090"]
+
+
+def test_lajiao_json_data_list_of_objects():
+    """辣椒 type=json 返回 data 数组 + ip/port 对象（常见实现）。"""
+    body = '{"code": 200, "data": [{"ip": "1.2.3.4", "port": 8080}, {"ip": "5.6.7.8", "port": 9090}]}'
+    parsed = pp.parse_proxy_response(body, "application/json")
+    assert parsed == ["1.2.3.4:8080", "5.6.7.8:9090"]
+
+
+def test_lajiao_json_with_username_password():
+    body = '{"data": {"list": [{"ip": "1.2.3.4", "port": 8080, "username": "u", "password": "p"}]}}'
+    parsed = pp.parse_proxy_response(body, "application/json")
+    assert parsed == ["http://u:p@1.2.3.4:8080"]

@@ -994,7 +994,11 @@
       <div class="proxy-tools" style="margin-top:14px">
         <div>
           <strong>动态住宅代理池</strong>
-          <p>动态池来源二选一：<b>api</b> = 从厂商 API 自动拉取（Oxylabs / Webshare / 通用提取 API）；<b>manual</b> = 手动粘贴代理列表。注册任务优先从动态池随机取 IP，静态「代理池」作兜底。</p>
+          <p>动态池来源二选一：<b>api</b> = 从厂商 API 自动拉取；<b>manual</b> = 手动粘贴代理列表。注册任务优先从动态池随机取 IP，静态「代理池」作兜底。</p>
+          <p style="margin-top:4px">支持厂商示例（填入「动态代理 API 地址」）：
+            <span class="mono">辣椒HTTP：http://api.lajiaohttp.com/api/extract_ip?regions=us&amp;num=20&amp;protocol=http&amp;type=txt&amp;cate=1&amp;t=10</span>（白名单免账密；regions=国家/Random，cate=1轮换/2粘性）·
+            <span class="mono">Oxylabs：https://proxy.oxylabs.io/key/你的KEY</span> ·
+            <span class="mono">Webshare：https://proxy.webshare.io/api/v2/proxy/list/?page_size=25</span></p>
         </div>
         <div class="proxy-test-actions">
           <button type="button" class="btn" id="proxyDynamicStatus">查看状态</button>

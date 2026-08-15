@@ -40,7 +40,7 @@ _LOCK = threading.RLock()
 # JSON 容器字段（递归查找代理数组）
 _JSON_CONTAINER_KEYS = ("proxies", "proxy_list", "proxylist", "results", "items", "list", "data", "proxyList")
 # 对象元素字段
-_HOST_KEYS = ("proxy_address", "proxyAddress", "ip", "host", "address", "proxy")
+_HOST_KEYS = ("proxy_address", "proxyAddress", "ip", "host", "address", "proxy", "ips")
 _PORT_KEYS = ("port", "proxy_port", "proxyPort", "ports")
 _USER_KEYS = ("username", "user", "login")
 _PASS_KEYS = ("password", "pass", "passwd")

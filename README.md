@@ -61,6 +61,9 @@ python tests/smoke_test.py
   完整变量清单见 `.env.example`；密钥类（SMS_API_KEY、代理 Token 等）建议用环境变量注入。
 - **代理池**：`config/proxy.py` 的 `PROXY_POOL`（配置页「代理配置」），每行一个代理；
   批量注册必须多 IP 轮换，单 IP 批量注册会被上游吊销。
+- **动态住宅代理池**：配置页「启用动态代理池」，来源二选一——`api`（厂商提取 API 自动拉取，支持辣椒HTTP
+  `http://api.lajiaohttp.com/api/extract_ip?regions=us&num=20&protocol=http&type=txt&cate=1&t=10`、
+  Oxylabs、Webshare 及通用提取 API）或 `manual`（手动粘贴代理列表）；注册任务优先从动态池随机取 IP。
 - **卡池支付**：配置页「卡池支付」启用后，在「卡池支付」页面导入卡片/PayPal 账号；
   驱动 `mock`（模拟，链接含 decline/timeout 分别模拟拒付/超时）或
   `stripe_protocol`（真实 Stripe 结账协议，需真实虚拟卡与匹配账单国家的出口 IP）。

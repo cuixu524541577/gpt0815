@@ -45,7 +45,7 @@ CODEX_REQUEST_TIMEOUT: int = 30
 # ============================================================
 
 # 注册成功后是否自动跑 Codex 授权（True=自动，False=跳过）
-ENABLE_CODEX_AUTO: bool = False
+ENABLE_CODEX_AUTO: bool = True
 
 # 注册流程是否设置账号密码（True=邮箱验证通过后，
 # 服务端走 password 分支时提交 username_password_create）
@@ -121,11 +121,11 @@ SMS_API_KEY: str = ""
 # 手机号验证步开关：True = 跳过接码（账号不绑手机；OpenAI 要求手机验证的授权会失败）
 CODEX_OAUTH_SKIP_PHONE: bool = False
 
-# 服务代码：OpenAI = "dr"
-SMS_SERVICE: str = "openai"
+# 服务代码：OpenAI = "dr"（sms-activate 兼容平台通用；h 模式为项目 ID）
+SMS_SERVICE: str = "dr"
 
 # 国家代码：葡萄牙 = "117" / 美国 = "187"
-SMS_COUNTRY: str = "10"
+SMS_COUNTRY: str = "187"
 
 # 单个号愿意支付的最高价格（留空=不限）。透传给 getNumber 的 maxPrice。
 SMS_MAX_PRICE: str = ""

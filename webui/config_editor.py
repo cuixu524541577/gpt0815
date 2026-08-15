@@ -300,7 +300,7 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "SMS_COUNTRY", "file": "codex.py", "type": "str", "group": "接码平台",
-        "label": "国家代码", "help": "GrizzlySMS 国家数字代码，常用：美国=187 / 葡萄牙=117 / 智利=151",
+        "label": "国家代码", "help": "GrizzlySMS 国家数字代码，常用：美国=187 / 葡萄牙=117 / 智利=151；hero/smsbower 以各自平台为准",
     },
     {
         "key": "SMS_SERVICE", "file": "codex.py", "type": "str", "group": "接码平台",

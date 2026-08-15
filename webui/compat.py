@@ -461,7 +461,7 @@ def _account_categories() -> list:
 
 
 def _accounts_features() -> dict:
-    return {"rt_extract_no_sms": True, "trial_check_enabled": False}
+    return {"rt_extract_no_sms": True, "trial_check_enabled": True}
 
 
 def _resolve_identities(identities: list) -> list:
@@ -1511,7 +1511,7 @@ def register_compat_routes(app) -> None:
         today_failed = sum(1 for t in tasks if t.get("status") == "failed" and str(t.get("completed_at", ""))[:10] == today)
         return jsonify({
             "ok": True, "items": items,
-            "features": {"trial_check_enabled": False},
+            "features": {"trial_check_enabled": True},
             "summary": {
                 "has_active_tasks": running > 0,
                 "pending": sum(1 for t in tasks if t.get("status") == "queued"),

@@ -179,6 +179,10 @@ EDITABLE_FIELDS = [
         "label": "单批注册数", "help": "每批注册账号数量（最小 1）", "min": 1,
     },
     {
+        "key": "AUTO_PLAN_CHECK_AFTER_REGISTER", "file": "register.py", "type": "bool", "group": "注册默认",
+        "label": "注册后自动查套餐", "help": "注册落库后自动入队查询 Plus 试用资格（后台异步，不占注册线程）",
+    },
+    {
         "key": "PROXY_POOL", "file": "proxy.py", "type": "list_str_multiline", "group": "代理池",
         "label": "代理池(每行一个)", "help": "每行一个代理 URL，留空行会被忽略；为空则不使用代理；网关型动态代理（BrightData/IPRoyal 等）直接填这里",
     },

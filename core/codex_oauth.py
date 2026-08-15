@@ -1430,8 +1430,9 @@ def run_codex_oauth(
         _submit_email_otp(session, email_otp)
         human_delay("api")
 
-        # 5. 手机号验证（接码，自动重试换号）
-        _do_phone_verification(session)
+        # 5. 手机号验证（接码，自动重试换号）；CODEX_OAUTH_SKIP_PHONE=True 时跳过
+        if not getattr(_cfg, "CODEX_OAUTH_SKIP_PHONE", False):
+            _do_phone_verification(session)
         human_delay("post_auth")
 
         # 6. 选 workspace → 拿 callback code

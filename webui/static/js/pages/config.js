@@ -700,10 +700,10 @@
       fieldsByKey.PROXY_DYNAMIC_MAX_POOL,
     ].filter(Boolean);
     const dynamicHtml = dynamicFields.length
-      ? `<div class="config-field-grid proxy-mode-grid" style="margin-top:16px">
-          <div class="config-source-hint"><strong>动态住宅代理池配置</strong><p>来源二选一：api = 从厂商 API 拉取；manual = 手动粘贴代理列表（不走 API）。开启后注册任务优先从动态池随机取 IP。</p></div>
-          ${dynamicFields.map(renderField).join('')}
-        </div>`
+      ? `<details class="proxy-dynamic-section">
+          <summary>动态住宅代理池配置<span class="muted">（点开填写；来源二选一：api=厂商 API 拉取 / manual=手动粘贴）</span></summary>
+          <div class="config-field-grid proxy-mode-grid">${dynamicFields.map(renderField).join('')}</div>
+        </details>`
       : '';
     return `
       ${noticeHtml(
@@ -1107,7 +1107,8 @@
   function visibleFieldCount(panelEl) {
     if (!panelEl) return 0;
     return Array.from(panelEl.querySelectorAll('.config-field-row'))
-      .filter(row => !row.classList.contains('hidden')).length;
+      .filter(row => !row.classList.contains('hidden')
+        && (!row.closest('details') || row.closest('details').open)).length;
   }
 
   function updateConfigBadges() {
@@ -1334,6 +1335,12 @@
     else if (t.id === 'proxyDynamicTest') testProxyDynamic();
     else if (t.id === 'proxyDynamicRefresh') refreshProxyDynamic();
   });
+  // 折叠展开时刷新徽标（details toggle）
+  document.addEventListener('toggle', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('proxy-dynamic-section')) {
+      updateConfigBadges();
+    }
+  }, true);
   window.GFR.pages = window.GFR.pages || {};
   window.GFR.pages.config = {
     loadConfig,

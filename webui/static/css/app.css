@@ -2304,6 +2304,33 @@ tr:last-child td { border-bottom: 0; }
   color: #bfdbfe;
 }
 .proxy-test-actions {
+.proxy-dynamic-section {
+  margin-top: 16px;
+  border: 1px solid rgba(148, 163, 184, .16);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .35);
+}
+.proxy-dynamic-section summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+  user-select: none;
+}
+.proxy-dynamic-section summary::-webkit-details-marker { display: none; }
+.proxy-dynamic-section summary::before {
+  content: '▸';
+  color: #7dd3fc;
+  font-size: 12px;
+  transition: transform .15s ease;
+}
+.proxy-dynamic-section[open] summary::before { transform: rotate(90deg); }
+.proxy-dynamic-section summary .muted { font-weight: 400; }
+.proxy-dynamic-section[open] .config-field-grid { padding: 4px 14px 14px; }
   display: flex;
   gap: 8px;
   flex-wrap: wrap;

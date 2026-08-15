@@ -333,6 +333,7 @@ async function startFreePlanRefresh(identity) {
   freePlanRefreshTasks.set(identity, { taskId: null, timer: null });
   renderAccounts();
   try {
+    // 该接口是同步验证（不创建后台任务），直接消费返回结果
     const result = await api('/api/accounts/access-token/relogin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -342,12 +343,16 @@ async function startFreePlanRefresh(identity) {
         filters: {},
       }),
     });
-    const taskId = Number(result.task?.id || 0);
-    if (!taskId) throw new Error('刷新任务未返回 task ID');
-    freePlanRefreshTasks.set(identity, { taskId, timer: null });
+    clearFreePlanRefresh(identity);
     renderAccounts();
-    showToast('已创建 AccessToken 刷新任务', 'success');
-    scheduleFreePlanRefreshPoll(identity, 500);
+    const items = result.items || [];
+    const item = items.find(i => i.identity === identity) || items[0] || {};
+    if (item.status === 'success') {
+      showToast(`AccessToken 有效：${identity}`, 'success');
+    } else {
+      showToast(`AccessToken 无效：${item.error || item.message || 'token 验证失败'}`, 'error');
+    }
+    await loadAccounts();
   } catch (err) {
     clearFreePlanRefresh(identity);
     renderAccounts();

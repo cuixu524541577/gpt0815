@@ -1494,9 +1494,17 @@ def register_compat_routes(app) -> None:
                 except Exception as exc:
                     item["error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
                     failed += 1
+            item["ok"] = item["status"] == "success"
+            item["message"] = item["error"] or ("token 有效" if item["ok"] else "")
             items.append(item)
         return jsonify({
             "ok": True,
+            "items": items,
+            "success": ok_count,
+            "failed": failed,
+            "requested": len(rows),
+            "account_total": len(rows),
+            "scope": scope,
             "task": {
                 "id": 0,
                 "account_total": len(rows),

@@ -27,6 +27,18 @@ def test_parse_four_part_lines():
     assert parsed == ["http://proxyuser:proxypass@1.2.3.4:8080"]
 
 
+def test_parse_four_part_hostname_lines():
+    """四段式域名（网关）host:port:user:pass → http://user:pass@host:port。"""
+    body = "us.lajiaohttp.net:2000:tvrfc27306-region-Random:tpd867rv\n"
+    parsed = pp.parse_proxy_response(body)
+    assert parsed == ["http://tvrfc27306-region-Random:tpd867rv@us.lajiaohttp.net:2000"]
+
+
+def test_parse_four_part_bad_port():
+    """四段式端口非数字 → 拒绝。"""
+    assert pp.parse_proxy_response("1.2.3.4:notaport:u:p\n") == []
+
+
 def test_parse_socks_prefix_lines():
     body = "socks5://1.2.3.4:1080\nhttp://u:p@5.6.7.8:3128\n"
     parsed = pp.parse_proxy_response(body)

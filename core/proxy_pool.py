@@ -89,11 +89,20 @@ def _normalize_entry(raw: str) -> str | None:
         if _parse_proxy_address(text) is None:
             return None
         return text
-    # 四段式 ip:port:user:pass → http://user:pass@ip:port
+    # 四段式 host:port:user:pass → http://user:pass@host:port（host 支持 IP 或域名，
+    # 如辣椒网关 us.lajiaohttp.net:2000:账号:密码；UI 提示语明确支持该格式）
     parts = text.split(":")
-    if len(parts) == 4 and parts[0].count(".") == 3 and parts[1].isdigit():
+    if (
+        len(parts) == 4
+        and parts[0]
+        and "@" not in parts[0]
+        and parts[1].isdigit()
+        and parts[2]
+        and parts[3]
+    ):
         host, port, user, pwd = parts
-        if port.isdigit() and user and pwd:
+        from webui.compat import _parse_proxy_address
+        if _parse_proxy_address(f"http://{user}:{pwd}@{host}:{port}") is not None:
             return f"http://{user}:{pwd}@{host}:{port}"
     # 普通 host:port
     from webui.compat import _parse_proxy_address

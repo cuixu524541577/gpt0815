@@ -107,6 +107,27 @@ def _proxy_for_task() -> str:
             return ""
 
 
+def _proxy_configured() -> bool:
+    """注册任务是否已配置代理（静态池或动态池任一可用）。
+
+    决定前端「当前没有配置代理」提示是否出现；之前硬编码 False，
+    导致配了动态代理 API/手动列表也一直提示。
+    """
+    try:
+        from config import proxy as _proxy_cfg
+        if [x for x in (_proxy_cfg.PROXY_POOL or []) if str(x).strip()]:
+            return True
+        from core import proxy_pool as _pp
+        if not _pp.enabled():
+            return False
+        mode = str(_pp._cfg("PROXY_DYNAMIC_MODE", "api") or "api").strip().lower()
+        if mode == "manual":
+            return bool(_pp.manual_list())
+        return bool(_pp.api_url())
+    except Exception:
+        return False
+
+
 # ---------------- 告警记录（任务连续失败等） ----------------
 def _record_alert(kind: str, message: str) -> None:
     alerts = _load("alerts", []) or []
@@ -686,7 +707,7 @@ def register_compat_routes(app) -> None:
             "mode": "email",
             "email_source": "buygptpuls_temp",
             "phone_sms_source": "platform",
-            "proxy_configured": False,
+            "proxy_configured": _proxy_configured(),
         })
 
     @app.get("/api/jobs/logs")

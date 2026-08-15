@@ -108,11 +108,19 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "QQ_EMAIL", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
-        "label": "QQ 邮箱地址", "help": "接收 Cloudflare 转发邮件的 QQ 邮箱",
+        "label": "收信邮箱地址", "help": "接收 Cloudflare 转发的邮箱（QQ/163/Gmail 等），也是 IMAP 登录账号",
     },
     {
         "key": "QQ_IMAP_PASSWORD", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
-        "label": "QQ 邮箱 IMAP 授权码", "help": "16 位授权码", "secret": True,
+        "label": "IMAP 授权码", "help": "收信邮箱的 IMAP 授权码（163/QQ 为 16 位授权码，不是邮箱密码）", "secret": True,
+    },
+    {
+        "key": "QQ_IMAP_SERVER", "file": "email.py", "type": "str", "group": "邮箱 / OTP",
+        "label": "IMAP 服务器", "help": "QQ: imap.qq.com / 163: imap.163.com / Gmail: imap.gmail.com",
+    },
+    {
+        "key": "QQ_IMAP_PORT", "file": "email.py", "type": "int", "group": "邮箱 / OTP",
+        "label": "IMAP 端口", "help": "SSL 端口，一般填 993", "min": 1, "max": 65535,
     },
     {
         "key": "BUYGPTPULS_API_BASE", "file": "email.py", "type": "str", "group": "邮箱 / OTP",

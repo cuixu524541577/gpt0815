@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-QQ 邮箱 IMAP 客户端（Cloudflare 域名邮箱模式）
+IMAP 收信客户端（Cloudflare 域名邮箱模式）
+
+收信邮箱不限于 QQ：QQ/163/Gmail 等任何支持 IMAP 的邮箱均可，
+在 WebUI「配置 → 邮箱 / OTP」填 QQ_IMAP_SERVER / QQ_IMAP_PORT 切换。
 
 工作流：
     1. pick_domain_email()    生成 random@domain 域名邮箱并落库
-    2. fetch_latest_otp()     通过 QQ 邮箱 IMAP 轮询取 OTP
+    2. fetch_latest_otp()     通过 IMAP 轮询取 OTP
 
 依赖：Python 标准库（imaplib, email, ssl），无新增第三方包。
 """
@@ -158,7 +161,7 @@ def _connect_imap() -> imaplib.IMAP4_SSL:
 
     if not qq_email or not password:
         raise QQMailClientError(
-            "QQ 邮箱 IMAP 未配置，请在 config/email.py 中设置 QQ_EMAIL 和 QQ_IMAP_PASSWORD"
+            "IMAP 收信邮箱未配置，请在 WebUI「配置 → 邮箱 / OTP」或 config/email.py 中设置 QQ_EMAIL 和 QQ_IMAP_PASSWORD"
         )
 
     try:
@@ -167,9 +170,9 @@ def _connect_imap() -> imaplib.IMAP4_SSL:
         mail.select("INBOX")
         return mail
     except imaplib.IMAP4.error as exc:
-        raise QQMailClientError(f"QQ 邮箱 IMAP 登录失败: {exc}")
+        raise QQMailClientError(f"IMAP 登录失败: {exc}")
     except Exception as exc:
-        raise QQMailClientError(f"QQ 邮箱 IMAP 连接失败: {exc}")
+        raise QQMailClientError(f"IMAP 连接失败: {exc}")
 
 
 def _search_messages(mail: imaplib.IMAP4_SSL, after_dt: datetime | None = None) -> list[dict]:
@@ -375,5 +378,5 @@ def fetch_latest_otp(
 
     raise QQMailClientError(
         f"等待 {email} 的 OTP 超时（>{max_wait or _email_cfg.OTP_MAX_WAIT}s）。"
-        f"可能：QQ 邮箱 IMAP 配置有误 / Cloudflare 转发未生效 / OpenAI 邮件未到达。"
+        f"可能：IMAP 配置有误 / Cloudflare 转发未生效 / OpenAI 邮件未到达。"
     )

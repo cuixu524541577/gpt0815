@@ -359,9 +359,25 @@
   function renderField(f) {
     const wideClass = f.type === 'list_str_multiline' ? ' config-field-wide' : '';
     const sourceScope = fieldScopeAttr(f);
+    if (f.key === 'REGISTER_BIRTHDAY') {
+      // 原生日历显示格式随系统区域（如 MM/DD/YYYY），这里加 YYYY-MM-DD 实际值预览
+      const birthdayValue = f.value || '';
+      return `
+        <div class="config-field-row" data-field-key="REGISTER_BIRTHDAY">
+          <div class="config-label">
+            <span>${esc(f.label)}</span>
+            <em class="mono">${esc(f.key)}</em>
+          </div>
+          <div class="config-control-wrap birthday-date-wrap">
+            <input class="ui-control" type="date" data-key="REGISTER_BIRTHDAY" value="${escRaw(birthdayValue)}">
+            <span class="birthday-value-preview mono" data-birthday-preview>${escRaw(birthdayValue)}</span>
+          </div>
+          <div class="config-help"><span>${esc(f.help)}；日历显示格式随系统区域，实际保存值始终为 YYYY-MM-DD</span></div>
+        </div>`;
+    }
     const control = controlHtml({
       key: f.key,
-      type: f.key === 'REGISTER_BIRTHDAY' ? 'date' : f.type,
+      type: f.type,
       value: f.value,
       secret: f.secret,
       options: fieldOptions(f),
@@ -1336,6 +1352,12 @@
     else if (t.id === 'proxyDynamicRefresh') refreshProxyDynamic();
   });
   // 折叠展开时刷新徽标（details toggle）
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.dataset && e.target.dataset.key === 'REGISTER_BIRTHDAY') {
+      const preview = document.querySelector('[data-birthday-preview]');
+      if (preview) preview.textContent = e.target.value || '-';
+    }
+  });
   document.addEventListener('toggle', (e) => {
     if (e.target && e.target.classList && e.target.classList.contains('proxy-dynamic-section')) {
       updateConfigBadges();

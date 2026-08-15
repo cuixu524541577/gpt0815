@@ -22,7 +22,7 @@ REGISTER_NAME = ""
 AUTO_PLAN_CHECK_AFTER_REGISTER = False
 
 # 默认生日（WebUI 批量注册任务参数，格式 YYYY-MM-DD）
-REGISTER_BIRTHDAY: str = "2000-01-01"
+REGISTER_BIRTHDAY: str = "1999-09-01"
 
 # 并发注册数（同时运行的注册任务线程数，最小 1）
 REGISTER_WORKERS: int = 3

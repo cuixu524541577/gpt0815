@@ -2307,6 +2307,22 @@ tr:last-child td { border-bottom: 0; }
 input[type="date"].ui-control {
   color-scheme: dark;  /* 原生日历控件适配深色主题 */
 }
+.birthday-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.birthday-date-wrap input { flex: 1; }
+.birthday-value-preview {
+  min-width: 96px;
+  padding: 5px 10px;
+  border: 1px dashed rgba(125, 211, 252, .35);
+  border-radius: 6px;
+  color: #7dd3fc;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+}
 .proxy-dynamic-section {
   margin-top: 16px;
   border: 1px solid rgba(148, 163, 184, .16);

@@ -348,7 +348,17 @@ def _outlook_fetch_mode() -> str:
 
 def _is_remote_disabled_error(exc: Exception | str) -> bool:
     text = str(exc or "")
-    return "DEPLOYMENT_DISABLED" in text or "HTTP 402" in text or "Payment required" in text
+    if "DEPLOYMENT_DISABLED" in text or "HTTP 402" in text or "Payment required" in text:
+        return True
+    # Cloudflare 人机验证页（403 + "Just a moment..."）：远端取件服务从当前出口 IP
+    # 不可达，与 402 同等对待，自动回退 Microsoft Graph/IMAP 直连。
+    if "HTTP 403" in text and (
+        "Just a moment" in text
+        or "challenge-platform" in text
+        or "cf-chl" in text
+    ):
+        return True
+    return False
 
 
 def _ms_http() -> CurlSession:
@@ -880,9 +890,11 @@ def _fetch_via(session: CurlSession, protocol: str, account: OutlookAccount) -> 
         logger.warning(f"[Outlook] {protocol} 请求失败: {exc}")
         if mode == "auto" and _is_remote_disabled_error(exc):
             _REMOTE_DISABLED = True
-            logger.warning("[Outlook] 远端取件服务已禁用，自动切换为 Microsoft Graph 直连模式")
+            logger.warning("[Outlook] 远端取件服务不可用，自动切换为 Microsoft Graph/IMAP 直连模式")
             if protocol == "graph":
                 return _fetch_via_graph_direct(account)
+            if protocol == "imap":
+                return _fetch_imap_direct_messages(account)
         return []
     except Exception as exc:
         logger.warning(f"[Outlook] {protocol} 请求异常: {type(exc).__name__}: {exc}")

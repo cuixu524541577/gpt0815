@@ -486,6 +486,200 @@ def _automation_task_public(task: dict) -> dict:
     return out
 
 
+_AUTOMATION_DISPATCH_TYPES = ("codex_retry", "trial_check", "password_setup", "twofa_setup", "agent_identity")
+
+
+def _run_automation_item(task_type: str, email: str, task_id: int) -> dict:
+    """执行单个账号的自动化任务，返回 {ok, status, message}。"""
+    if task_type == "codex_retry":
+        from core.codex_retry_service import reserve, run_worker
+        if not reserve(email):
+            return {"ok": False, "status": "skipped", "message": "该账号正在补跑中，已跳过"}
+        try:
+            res = run_worker(email, batch_label=f"task#{task_id}", clear_log=False)
+            return {
+                "ok": bool(res.get("ok")),
+                "status": "success" if res.get("ok") else str(res.get("status") or "failed"),
+                "message": res.get("message") or "",
+            }
+        except Exception as exc:
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
+
+    if task_type == "trial_check":
+        from core import db as _db
+        from core.plan_check_service import enqueue_account_plan_check
+        acc = _db.get_account_by_email(email)
+        if acc is None or not acc.get("access_token"):
+            return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
+        res = enqueue_account_plan_check(
+            account_id=int(acc.get("id") or 0),
+            email=email,
+            access_token=acc["access_token"],
+            trigger="automation_task",
+        )
+        if res.get("accepted"):
+            return {"ok": True, "status": "queued", "message": "权益查询已入队"}
+        return {"ok": False, "status": "failed", "message": res.get("error") or "权益查询队列满"}
+
+    if task_type == "password_setup":
+        from core.mail_password_change import change_mailcom_password_for_email
+        try:
+            new_pw = change_mailcom_password_for_email(email)
+            return {"ok": True, "status": "success", "message": f"密码已更新（{new_pw[:3]}***）"}
+        except Exception as exc:
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
+
+    if task_type == "access_token_relogin":
+        from core import db as _db3
+        acc = _db3.get_account_by_email(email)
+        if acc is None or not acc.get("access_token"):
+            return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
+        try:
+            import requests as _req
+            proxy = _proxy_for_task()
+            proxies = {"http": proxy, "https": proxy} if proxy else None
+            resp = _req.get(
+                "https://chatgpt.com/backend-api/me",
+                headers={"Authorization": f"Bearer {acc['access_token']}"},
+                timeout=15, proxies=proxies,
+            )
+            if resp.status_code == 200:
+                return {"ok": True, "status": "success", "message": "token 有效"}
+            return {"ok": False, "status": "failed", "message": f"token 无效（HTTP {resp.status_code}）"}
+        except Exception as exc:
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+    if task_type == "agent_identity":
+        from core.agent_identity_pkg.agent_identity_service import ensure_agent_identity
+        from core import db as _db2
+        acc = _db2.get_account_by_email(email)
+        if acc is None or not acc.get("access_token"):
+            return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
+        try:
+            import types as _types
+            rec = _types.SimpleNamespace(
+                email=acc.get("email", ""),
+                access_token=acc.get("access_token", ""),
+                refresh_token=acc.get("refresh_token", ""),
+                chatgpt_account_id=acc.get("user_id", ""),
+                chatgpt_user_id=acc.get("user_id", ""),
+                plan_type=acc.get("plan_type") or "free",
+            )
+            res = ensure_agent_identity(rec, proxy=_proxy_for_task())
+            if res.get("ok"):
+                return {"ok": True, "status": "success", "message": "Agent Identity 已生成并落盘"}
+            return {"ok": False, "status": "failed", "message": res.get("error") or "Agent 注册失败"}
+        except Exception as exc:
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
+
+    if task_type == "twofa_setup":
+        from core.account_export import setup_2fa
+        from core.session import BrowserSession
+        try:
+            session = BrowserSession()
+            secret = setup_2fa(session, email)
+            return {"ok": True, "status": "success", "message": "2FA 已设置" if secret else "2FA 设置未返回密钥"}
+        except Exception as exc:
+            return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
+
+    return {"ok": False, "status": "unsupported", "message": f"任务类型 {task_type} 暂不支持"}
+
+
+def _execute_automation_task(task_id: int) -> None:
+    """后台执行自动化任务；任何异常都写进任务记录，绝不无声卡死。"""
+    task_id = int(task_id)
+    try:
+        _execute_automation_task_inner(task_id)
+    except Exception as exc:
+        logger.exception("[自动化任务] #%s 后台执行异常", task_id)
+        try:
+            tasks = _load("automation_tasks", []) or []
+            cur = next((t for t in tasks if t.get("id") == task_id), None)
+            if cur is not None:
+                cur["status"] = "failed"
+                cur["error"] = f"后台执行异常：{type(exc).__name__}: {exc}"[:500]
+                cur["completed_at"] = _now()
+                _save("automation_tasks", tasks)
+        except Exception:
+            pass
+
+
+def _execute_automation_task_inner(task_id: int) -> None:
+    tasks = _load("automation_tasks", []) or []
+    cur = next((t for t in tasks if t.get("id") == task_id), None)
+    if cur is None or cur.get("status") not in ("queued", "failed", "stopped"):
+        return
+    task_type = str(cur.get("task_type") or "codex_retry")
+    identities = [str(i) for i in (cur.get("identities") or []) if str(i).strip()]
+    cur["status"] = "running"
+    cur["error"] = None
+    _save("automation_tasks", tasks)
+    processed = {str(i.get("identity_snapshot") or "") for i in (cur.get("items") or []) if isinstance(i, dict)}
+    failed = int(cur.get("account_failed") or 0)
+    item_seq = len(cur.get("items") or [])
+    for email in identities:
+        if email in processed:
+            continue
+        res = _run_automation_item(task_type, email, task_id)
+        if not res.get("ok"):
+            failed += 1
+            _record_alert("automation_task", f"任务#{task_id} {task_type} 失败: {email} - {res.get('message', '')}")
+        item_seq += 1
+        item = {
+            "id": item_seq,
+            "identity_snapshot": email,
+            "status": res.get("status", "failed"),
+            "result_summary": res.get("message", ""),
+            "error": None if res.get("ok") else res.get("message"),
+            "updated_at": _now(),
+        }
+        tasks = _load("automation_tasks", []) or []
+        cur = next((t for t in tasks if t.get("id") == task_id), None)
+        if cur is None:
+            return
+        cur.setdefault("items", []).append(item)
+        cur["account_processed"] = len(cur["items"])
+        cur["account_failed"] = failed
+        _save("automation_tasks", tasks)
+    tasks = _load("automation_tasks", []) or []
+    cur = next((t for t in tasks if t.get("id") == task_id), None)
+    if cur is not None:
+        cur["status"] = "completed"
+        cur["completed_at"] = _now()
+        _save("automation_tasks", tasks)
+        try:
+            from webui.notify import notify_automation_task
+            notify_automation_task(task_id, task_type, len(identities), failed)
+        except Exception:
+            pass
+
+
+def _heal_stuck_automation_tasks() -> None:
+    """自愈：queued 超过 60 秒的任务重新派发（后台线程意外死亡时兜底）。"""
+    try:
+        tasks = _load("automation_tasks", []) or []
+        now = time.time()
+        for t in tasks:
+            if t.get("status") != "queued":
+                continue
+            created = str(t.get("created_at") or "")
+            try:
+                age = now - datetime.fromisoformat(created).timestamp()
+            except Exception:
+                age = 0
+            if age < 60:
+                continue
+            logger.warning("[自动化任务] 发现卡住的 queued 任务 #%s，重新派发", t.get("id"))
+            threading.Thread(
+                target=_execute_automation_task,
+                args=(int(t.get("id") or 0),),
+                name=f"auto-task-{t.get('id')}-heal",
+                daemon=True,
+            ).start()
+    except Exception:
+        logger.warning("自动化任务自愈检查失败", exc_info=True)
+
+
 def _resolve_identities(identities: list) -> list:
     """把身份列表解析为账号行（不存在则忽略）。"""
     out = []
@@ -1517,6 +1711,8 @@ def register_compat_routes(app) -> None:
     # ---------------- 自动化任务 ----------------
     @app.get("/api/automation-tasks")
     def api_automation_tasks_list():
+        # 自愈：卡住的 queued 任务（后台线程意外死亡）重新派发
+        _heal_stuck_automation_tasks()
         page = request.args.get("page", default=1, type=int)
         per_page = request.args.get("per_page", default=10, type=int)
         q = request.args.get("q", "").strip()
@@ -1597,161 +1793,14 @@ def register_compat_routes(app) -> None:
         _save("automation_tasks", tasks)
 
         # 真实后台执行：按任务类型分发（codex_retry/trial_check/password_setup/twofa_setup）
-        if task_type in ("codex_retry", "trial_check", "password_setup", "twofa_setup", "agent_identity"):
-            import threading as _t
-
-            def _run_one(email: str) -> dict:
-                """执行单个账号的任务，返回 {ok, status, message}。"""
-                if task_type == "codex_retry":
-                    from core.codex_retry_service import reserve, run_worker
-                    if not reserve(email):
-                        return {"ok": False, "status": "skipped", "message": "该账号正在补跑中，已跳过"}
-                    try:
-                        res = run_worker(email, batch_label=f"task#{task['id']}", clear_log=False)
-                        return {
-                            "ok": bool(res.get("ok")),
-                            "status": "success" if res.get("ok") else str(res.get("status") or "failed"),
-                            "message": res.get("message") or "",
-                        }
-                    except Exception as exc:
-                        return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
-
-                if task_type == "trial_check":
-                    from core import db as _db
-                    from core.plan_check_service import enqueue_account_plan_check
-                    acc = _db.get_account_by_email(email)
-                    if acc is None or not acc.get("access_token"):
-                        return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
-                    res = enqueue_account_plan_check(
-                        account_id=int(acc.get("id") or 0),
-                        email=email,
-                        access_token=acc["access_token"],
-                        trigger="automation_task",
-                    )
-                    if res.get("accepted"):
-                        return {"ok": True, "status": "queued", "message": "权益查询已入队"}
-                    return {"ok": False, "status": "failed", "message": res.get("error") or "权益查询队列满"}
-
-                if task_type == "password_setup":
-                    from core.mail_password_change import change_mailcom_password_for_email
-                    try:
-                        new_pw = change_mailcom_password_for_email(email)
-                        return {"ok": True, "status": "success", "message": f"密码已更新（{new_pw[:3]}***）"}
-                    except Exception as exc:
-                        return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
-
-                if task_type == "access_token_relogin":
-                    from core import db as _db3
-                    acc = _db3.get_account_by_email(email)
-                    if acc is None or not acc.get("access_token"):
-                        return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
-                    try:
-                        import requests as _req
-                        proxy = _proxy_for_task()
-                        proxies = {"http": proxy, "https": proxy} if proxy else None
-                        resp = _req.get(
-                            "https://chatgpt.com/backend-api/me",
-                            headers={"Authorization": f"Bearer {acc['access_token']}"},
-                            timeout=15, proxies=proxies,
-                        )
-                        if resp.status_code == 200:
-                            return {"ok": True, "status": "success", "message": "token 有效"}
-                        return {"ok": False, "status": "failed", "message": f"token 无效（HTTP {resp.status_code}）"}
-                    except Exception as exc:
-                        return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {str(exc)[:120]}"}
-
-                if task_type == "agent_identity":
-                    from core.agent_identity_pkg.agent_identity_service import ensure_agent_identity
-                    from core import db as _db2
-                    acc = _db2.get_account_by_email(email)
-                    if acc is None or not acc.get("access_token"):
-                        return {"ok": False, "status": "failed", "message": "账号缺少 access_token"}
-                    try:
-                        import types as _types
-                        rec = _types.SimpleNamespace(
-                            email=acc.get("email", ""),
-                            access_token=acc.get("access_token", ""),
-                            refresh_token=acc.get("refresh_token", ""),
-                            chatgpt_account_id=acc.get("user_id", ""),
-                            chatgpt_user_id=acc.get("user_id", ""),
-                            plan_type=acc.get("plan_type") or "free",
-                        )
-                        res = ensure_agent_identity(rec, proxy=_proxy_for_task())
-                        if res.get("ok"):
-                            return {"ok": True, "status": "success", "message": "Agent Identity 已生成并落盘"}
-                        return {"ok": False, "status": "failed", "message": res.get("error") or "Agent 注册失败"}
-                    except Exception as exc:
-                        return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
-
-                if task_type == "twofa_setup":
-                    from core.account_export import setup_2fa
-                    from core.session import BrowserSession
-                    try:
-                        session = BrowserSession()
-                        secret = setup_2fa(session, email)
-                        return {"ok": True, "status": "success", "message": "2FA 已设置" if secret else "2FA 设置未返回密钥"}
-                    except Exception as exc:
-                        return {"ok": False, "status": "failed", "message": f"{type(exc).__name__}: {exc}"}
-
-                return {"ok": False, "status": "unsupported", "message": f"任务类型 {task_type} 暂不支持"}
-
-            def _bg_execute():
-                """后台执行；任何异常都写进任务记录，避免任务无声卡死。"""
-                try:
-                    _bg_execute_inner()
-                except Exception as exc:
-                    logger.exception("[自动化任务] #%s 后台执行异常", task["id"])
-                    try:
-                        cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
-                        if cur is not None:
-                            cur["status"] = "failed"
-                            cur["error"] = f"后台执行异常：{type(exc).__name__}: {exc}"[:500]
-                            cur["completed_at"] = _now()
-                            _save("automation_tasks", _load("automation_tasks", []) or [])
-                    except Exception:
-                        pass
-
-            def _bg_execute_inner():
-                cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
-                if cur is None:
-                    return
-                cur["status"] = "running"
-                _save("automation_tasks", _load("automation_tasks", []) or [])
-                failed = 0
-                item_seq = 0
-                for email in identities:
-                    res = _run_one(email)
-                    if not res.get("ok"):
-                        failed += 1
-                        _record_alert("automation_task", f"任务#{task['id']} {task_type} 失败: {email} - {res.get('message', '')}")
-                    item_seq += 1
-                    item = {
-                        "id": item_seq,
-                        "identity_snapshot": email,
-                        "status": res.get("status", "failed"),
-                        "result_summary": res.get("message", ""),
-                        "error": None if res.get("ok") else res.get("message"),
-                        "updated_at": _now(),
-                    }
-                    cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
-                    if cur is None:
-                        return
-                    cur.setdefault("items", []).append(item)
-                    cur["account_processed"] = len(cur["items"])
-                    cur["account_failed"] = failed
-                    _save("automation_tasks", _load("automation_tasks", []) or [])
-                cur = next((x for x in _load("automation_tasks", []) or [] if x.get("id") == task["id"]), None)
-                if cur is not None:
-                    cur["status"] = "completed"
-                    cur["completed_at"] = _now()
-                    _save("automation_tasks", _load("automation_tasks", []) or [])
-                    try:
-                        from webui.notify import notify_automation_task
-                        notify_automation_task(task["id"], task_type, len(identities), failed)
-                    except Exception:
-                        pass
-
-            _t.Thread(target=_bg_execute, name=f"auto-task-{task['id']}", daemon=True).start()
+        # 执行逻辑在模块级 _execute_automation_task（列表页还会自愈重新派发卡住的任务）
+        if task_type in _AUTOMATION_DISPATCH_TYPES:
+            threading.Thread(
+                target=_execute_automation_task,
+                args=(task["id"],),
+                name=f"auto-task-{task['id']}",
+                daemon=True,
+            ).start()
 
         return jsonify({"ok": True, "task": _automation_task_public(task), "account_total": len(rows), "skipped": 0})
 
@@ -1831,6 +1880,13 @@ def register_compat_routes(app) -> None:
         if task:
             task["status"] = "queued"
             _save("automation_tasks", tasks)
+            # 重试 = 真正重新派发执行（仅重跑未成功/未完成的明细）
+            threading.Thread(
+                target=_execute_automation_task,
+                args=(task_id,),
+                name=f"auto-task-{task_id}-resume",
+                daemon=True,
+            ).start()
         return jsonify({"ok": True, "mode": mode})
 
     @app.delete("/api/automation-tasks/<int:task_id>")

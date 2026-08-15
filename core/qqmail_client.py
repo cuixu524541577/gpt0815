@@ -152,6 +152,30 @@ def _msg_to_dict(msg) -> dict:
 # IMAP 连接与搜索
 # ============================================================
 
+_NETEASE_IMAP_HOSTS = ("163.com", "126.com", "yeah.net", "188.com")
+
+
+def _imap_identify(mail: imaplib.IMAP4_SSL) -> None:
+    """向网易系服务器发送 IMAP ID（RFC 2971）声明客户端身份。
+
+    163/126 要求客户端表明身份，否则 SELECT 收件箱被拒：
+    "Unsafe Login. Please contact kefu@188.com for help"。
+    其他服务器（QQ/Gmail）不发送；不支持 ID 的服务器忽略失败即可。
+    """
+    host = str(getattr(_email_cfg, "QQ_IMAP_SERVER", "") or "").lower()
+    if not any(d in host for d in _NETEASE_IMAP_HOSTS):
+        return
+    identity = (
+        '("name" "gpt-register-console" "version" "1.0.0" '
+        '"vendor" "gpt-register-console" "support-email" "kefu@163.com")'
+    )
+    try:
+        typ, _data = mail._simple_command("ID", identity)
+        logger.debug("[QQMail] IMAP ID 响应: %s", typ)
+    except Exception as exc:
+        logger.warning("[QQMail] IMAP ID 发送失败（忽略，继续尝试收信）: %s", exc)
+
+
 def _connect_imap() -> imaplib.IMAP4_SSL:
     """连接 QQ 邮箱 IMAP 服务器并返回连接对象。"""
     server = _email_cfg.QQ_IMAP_SERVER
@@ -167,6 +191,7 @@ def _connect_imap() -> imaplib.IMAP4_SSL:
     try:
         mail = imaplib.IMAP4_SSL(server, port)
         mail.login(qq_email, password)
+        _imap_identify(mail)
         # select 失败不会抛异常（返回 NO 时连接停留在 AUTH 状态），
         # 不检查返回值的话下一步 SEARCH 会报 "illegal in state AUTH"。
         typ, data = mail.select("INBOX")

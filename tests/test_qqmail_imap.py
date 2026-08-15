@@ -60,3 +60,58 @@ def test_search_state_error_retries_next_cycle(monkeypatch):
     )
     assert otp == "123456"
     assert rounds["n"] >= 2
+
+
+def test_imap_id_sent_for_netease(monkeypatch):
+    """163 要求客户端发送 IMAP ID 声明身份，否则 SELECT 被拒（Unsafe Login）。"""
+    calls = []
+
+    class FakeIMAP:
+        def __init__(self, server, port):
+            pass
+
+        def login(self, user, password):
+            return ("OK", [])
+
+        def _simple_command(self, name, *args):
+            calls.append((name, args))
+            return ("OK", [b"ID completed"])
+
+        def select(self, folder):
+            return ("OK", [b"1"])
+
+    monkeypatch.setattr(_email_cfg, "QQ_IMAP_SERVER", "imap.163.com")
+    monkeypatch.setattr(_email_cfg, "QQ_EMAIL", "a@163.com")
+    monkeypatch.setattr(_email_cfg, "QQ_IMAP_PASSWORD", "authcode")
+    monkeypatch.setattr(qc.imaplib, "IMAP4_SSL", FakeIMAP)
+
+    qc._connect_imap()
+    assert calls and calls[0][0] == "ID"
+    assert '("name"' in calls[0][1][0]
+
+
+def test_imap_id_skipped_for_qq(monkeypatch):
+    """非网易服务器（如 QQ）不发送 ID，避免打扰不支持该扩展的服务器。"""
+    calls = []
+
+    class FakeIMAP:
+        def __init__(self, server, port):
+            pass
+
+        def login(self, user, password):
+            return ("OK", [])
+
+        def _simple_command(self, name, *args):
+            calls.append((name, args))
+            return ("OK", [])
+
+        def select(self, folder):
+            return ("OK", [b"1"])
+
+    monkeypatch.setattr(_email_cfg, "QQ_IMAP_SERVER", "imap.qq.com")
+    monkeypatch.setattr(_email_cfg, "QQ_EMAIL", "a@qq.com")
+    monkeypatch.setattr(_email_cfg, "QQ_IMAP_PASSWORD", "authcode")
+    monkeypatch.setattr(qc.imaplib, "IMAP4_SSL", FakeIMAP)
+
+    qc._connect_imap()
+    assert calls == []

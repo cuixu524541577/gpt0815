@@ -38,10 +38,12 @@ docker compose logs -f console
 
 ## 访问方式
 
-默认只绑定 `127.0.0.1:5001`（安全默认）。两种访问：
+compose 默认公网映射 `"5001:5001"`，容器内绑定 `0.0.0.0`（Docker 端口映射转发到容器
+网卡 IP，应用必须绑 0.0.0.0 才能被访问；绑 127.0.0.1 会表现为「容器 healthy 但本机
+curl 也 000」）。两种访问：
 
-**方式 A（简单，仅测试）**：修改 docker-compose.yml 端口映射为 `"5001:5001"`，重启后
-浏览器访问 `http://服务器IP:5001`（注意：控制台有登录保护，但仍建议尽快配 HTTPS）。
+**方式 A（简单，仅测试）**：浏览器访问 `http://服务器IP:5001`
+（注意：控制台有登录保护，但仍建议尽快配 HTTPS）。
 
 **方式 B（推荐）**：nginx 反代 + HTTPS
 ```bash
@@ -84,6 +86,9 @@ docker compose up -d --build
 ## 常见问题
 
 - 容器起不来：`docker compose logs console` 看错误；多为 .env 语法或端口占用
+- 容器 healthy 但 `curl 127.0.0.1:5001` 返回 000：应用在容器里只绑了 127.0.0.1
+  （健康检查走容器内回环所以显示正常）。重新 `docker compose up -d --build` 用带
+  `--host 0.0.0.0` 的新镜像即可
 - 健康检查一直 starting：`docker inspect gpt-register-console` 看状态
 - 配置页保存不生效：config/ 卷挂载权限问题（`chown -R 10001:10001 config data`）
 - 账号全部被吊销：单 IP 批量注册导致——必须配置多代理池轮换（见 docs/ANTI-BOT.md）

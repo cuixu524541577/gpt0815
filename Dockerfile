@@ -22,4 +22,6 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/login', timeout=5)"
 
-CMD ["python3", "web.py", "--host", "127.0.0.1", "--port", "5001", "--no-browser"]
+# 必须绑定 0.0.0.0：Docker 端口映射是转发到容器网卡 IP，
+# 绑 127.0.0.1 会导致映射端口连接被拒（健康检查走容器内回环看不出来）
+CMD ["python3", "web.py", "--host", "0.0.0.0", "--port", "5001", "--no-browser"]

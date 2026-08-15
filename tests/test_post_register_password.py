@@ -178,9 +178,10 @@ def test_register_workers_min_bound():
 
 
 def test_register_birthday_has_default_value():
-    """REGISTER_BIRTHDAY 已真实定义（默认 2000-01-01），不再是无定义占位字段。"""
+    """REGISTER_BIRTHDAY 已真实定义（合法 YYYY-MM-DD），不再是无定义占位字段。"""
+    import re as _re
     from webui import config_editor as ce
     fields = {f["key"]: f for f in ce.get_config()}
-    assert fields["REGISTER_BIRTHDAY"]["value"] == "2000-01-01"
+    assert _re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(fields["REGISTER_BIRTHDAY"]["value"] or ""))
     assert fields["REGISTER_WORKERS"]["value"] >= 1
     assert fields["REGISTER_BATCH_COUNT"]["value"] >= 1

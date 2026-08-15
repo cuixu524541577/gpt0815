@@ -2,6 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Node.js 18+（sentinel 反机器人必需——注册流程依赖它生成 turnstile/PoW token）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 # 核心依赖（协议注册必需）；浏览器驱动（selenium/playwright/cloakbrowser）
 # 按需手动安装——Docker 里不需要它们，装反而拖慢构建且易失败
 COPY requirements-core.txt .

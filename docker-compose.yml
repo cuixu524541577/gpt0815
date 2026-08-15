@@ -4,9 +4,9 @@ services:
     image: gpt-register-console:latest
     container_name: gpt-register-console
     restart: unless-stopped
-    # 仅本地回环映射；对外访问请用 nginx 反代 + HTTPS（见 deploy/nginx.conf）
+    # 公网映射（有登录保护；建议尽快套 HTTPS/宝塔反代，见 docs/DEPLOY_DOCKER.md）
     ports:
-      - "127.0.0.1:5001:5001"
+      - "5001:5001"
     environment:
       # 首次启动自动创建管理员凭据（.env 里配置；已配置过则忽略）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}

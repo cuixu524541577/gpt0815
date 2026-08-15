@@ -252,3 +252,23 @@ def test_pick_proxy_static_skips_blacklisted(monkeypatch):
         assert all(p == "a" for p in picks)
     finally:
         pp._BLACKLIST.clear()
+
+
+def test_refresh_pool_replaces_old_proxies(tmp_path, monkeypatch):
+    """刷新 = 重新提取替换，旧池清空（否则被封的旧 IP 永远留在池里被抽中）。"""
+    import core.proxy_pool as pp
+    monkeypatch.setattr(pp, "_POOL_FILE", tmp_path / "pool.json")
+    pp._write_pool({"fetched_at": "2026-08-15T00:00:00", "proxies": ["old:1", "old:2"]})
+    monkeypatch.setattr(
+        pp, "fetch_dynamic_proxies",
+        lambda timeout=20.0: ["new:1", "new:2", "new:1"],
+    )
+    pool = pp.refresh_pool()
+    assert pool["proxies"] == ["new:1", "new:2"]
+    # 再次刷新：依旧整体替换
+    monkeypatch.setattr(
+        pp, "fetch_dynamic_proxies",
+        lambda timeout=20.0: ["fresh:1"],
+    )
+    pool = pp.refresh_pool()
+    assert pool["proxies"] == ["fresh:1"]

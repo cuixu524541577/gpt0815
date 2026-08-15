@@ -341,15 +341,26 @@ def merge_proxy_lists(fetched: list[str], existing: list[str], max_pool: int) ->
 
 
 def refresh_pool() -> dict:
-    """拉取并合并进本地池。返回合并后的池。"""
+    """重新提取并**替换**本地池（不清旧池的话，被封的旧 IP 会一直留在池里被抽中）。
+
+    提取型 API（Oxylabs key URL / 通用 extract API）每次调用都是一批全新 IP，
+    旧 IP 被 OpenAI 拉黑后留着只会持续 403，所以刷新即替换，不做新旧合并。
+    返回替换后的池。
+    """
     with _LOCK:
         fetched = fetch_dynamic_proxies()
         max_pool = _int_cfg("PROXY_DYNAMIC_MAX_POOL", 200, 1, 5000)
-        pool = _read_pool()
-        merged = merge_proxy_lists(fetched, pool.get("proxies", []), max_pool)
-        pool = {"fetched_at": _now(), "proxies": merged, "source": api_url()}
+        seen = set()
+        fresh = []
+        for entry in fetched:
+            if entry not in seen:
+                seen.add(entry)
+                fresh.append(entry)
+        if len(fresh) > max(1, max_pool):
+            fresh = random.sample(fresh, max(1, max_pool))
+        pool = {"fetched_at": _now(), "proxies": fresh, "source": api_url()}
         _write_pool(pool)
-        logger.info("[动态代理] 刷新完成：新增 %d 条，池共 %d 条", len(fetched), len(merged))
+        logger.info("[动态代理] 刷新完成：重新提取 %d 条，旧池已清空", len(fresh))
         return pool
 
 

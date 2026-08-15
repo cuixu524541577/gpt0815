@@ -622,6 +622,7 @@ def insert_account(
     extra: dict | None = None,
     codex_status: str | None = None,   # success / failed / skipped / missing
     codex_error: str | None = None,    # 失败原因（仅 codex_status=failed 时有意义）
+    password: str | None = None,       # 注册后设置的账号密码（可选）
 ) -> int:
     """插入或更新注册成功账号，返回本地文件中的 id。"""
     with _LOCK:
@@ -656,6 +657,7 @@ def insert_account(
             "extra_json": extra_json if extra_json is not None else row.get("extra_json"),
             "codex_status": codex_status if codex_status is not None else row.get("codex_status"),
             "codex_error": codex_error if codex_error is not None else row.get("codex_error"),
+            "password": password if password is not None else row.get("password"),
             "updated_at": _now(),
         })
 

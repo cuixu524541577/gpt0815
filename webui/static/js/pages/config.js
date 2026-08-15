@@ -76,7 +76,7 @@
       desc: '注册模式、生日，以及 WebUI 批量任务启动参数。',
       keys: [
         'REGISTRATION_MODE',
-        'ENABLE_POST_REGISTER_PASSWORD',
+        'ENABLE_POST_REGISTER_PASSWORD', 'POST_REGISTER_PASSWORD',
         'PHONE_REGISTRATION_SMS_SOURCE',
         'REGISTER_BATCH_COUNT',
         'REGISTER_WORKERS',

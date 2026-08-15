@@ -47,6 +47,14 @@ CODEX_REQUEST_TIMEOUT: int = 30
 # 注册成功后是否自动跑 Codex 授权（True=自动，False=跳过）
 ENABLE_CODEX_AUTO: bool = False
 
+# 注册流程是否设置账号密码（True=邮箱验证通过后，
+# 服务端走 password 分支时提交 username_password_create）
+# 注：服务端可能选择 passwordless 分支，此时自动跳过（无法强制）。
+ENABLE_POST_REGISTER_PASSWORD: bool = False
+
+# 设置的账号密码；留空 = 随机生成（生成后随账号信息落盘保存）
+POST_REGISTER_PASSWORD: str = ""
+
 # Codex OAuth 授权驱动：
 #   "protocol" = 原有 curl_cffi 协议授权
 #   "roxy"     = 调用 RoxyBrowser 指纹浏览器完成授权页面/手机验证/回调捕获

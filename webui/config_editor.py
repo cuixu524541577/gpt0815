@@ -56,7 +56,11 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "ENABLE_POST_REGISTER_PASSWORD", "file": "codex.py", "type": "bool", "group": "功能开关",
-        "label": "注册后设置密码", "help": "注册完成后自动设置登录密码",
+        "label": "注册后设置密码", "help": "注册完成后自动设置登录密码（服务端走密码分支时生效，passwordless 分支自动跳过）",
+    },
+    {
+        "key": "POST_REGISTER_PASSWORD", "file": "codex.py", "type": "str", "group": "功能开关",
+        "label": "注册后密码", "help": "设置给新注册账号的密码；留空则随机生成并随账号信息落盘保存", "secret": True,
     },
     {
         "key": "ENABLE_PAYMENT_LINK_AUTO_EXTRACT", "file": "codex.py", "type": "bool", "group": "功能开关",

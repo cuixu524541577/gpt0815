@@ -355,40 +355,49 @@ def build_sentinel_header(session: BrowserSession, sentinel_resp: dict, flow: st
 #     logger.info(f"[步骤5] 创建账号-密码页访问成功, 落点: {resp.url}")
 
 
-# def register_user(session: BrowserSession, email: str, password: str, sentinel_header: str) -> dict:
-#     """
-#     [备用] 步骤7: 提交注册请求（邮箱+密码）。
-#     POST https://auth.openai.com/api/accounts/user/register
-#
-#     Returns:
-#         注册响应 JSON，例如:
-#         {
-#             "continue_url": "https://auth.openai.com/api/accounts/email-otp/send",
-#             "method": "GET",
-#             "page": {"type": "email_otp_send", "backstack_behavior": "default"}
-#         }
-#     """
-#     url = "https://auth.openai.com/api/accounts/user/register"
-#
-#     headers = session.get_auth_headers(referer="https://auth.openai.com/create-account/password")
-#     headers["openai-sentinel-token"] = sentinel_header
-#
-#     body = json.dumps({
-#         "password": password,
-#         "username": email,
-#     })
-#
-#     logger.info(f"[步骤7] 提交注册请求, 邮箱: {email}")
-#     resp = session.post(url, headers=headers, data=body)
-#
-#     if resp.status_code != 200:
-#         logger.error(f"[步骤7] 请求失败, 状态码: {resp.status_code}")
-#         logger.error(f"[步骤7] 响应内容: {resp.text}")
-#         resp.raise_for_status()
-#
-#     data = resp.json()
-#     logger.info(f"[步骤7] 注册请求成功: {data.get('page', {}).get('type')}")
-#     return data
+# ============================================================
+# 注册后设置密码（username_password_create 分支）
+# 移植自 gptfree-register：仅当服务端明确选择 password 分支时调用，
+# passwordless 分支强行调用会推进错 auth step。
+# ============================================================
+
+def auth_step_requires_password(continue_url: str, page_type: str) -> bool:
+    """判断服务端是否选择了密码分支（continue_url / page.type 含 password）。"""
+    marker = f"{continue_url or ''} {page_type or ''}".lower()
+    return "password" in marker
+
+
+def register_user(session: BrowserSession, email: str, password: str, sentinel_header: str) -> dict:
+    """
+    步骤7: 提交注册请求（邮箱+密码），设置 ChatGPT 账号密码。
+
+    POST https://auth.openai.com/api/accounts/user/register
+    body: {"password": <password>, "username": <email>}
+
+    Returns:
+        注册响应 JSON（含 continue_url / page.type；错误时含 _http_status）
+
+    Raises:
+        网络异常（非 2xx 不 raise，由调用方决定降级策略）
+    """
+    url = "https://auth.openai.com/api/accounts/user/register"
+    headers = session.get_auth_headers(referer="https://auth.openai.com/create-account/password")
+    headers["openai-sentinel-token"] = sentinel_header
+    body = json.dumps({"password": password, "username": email})
+
+    logger.info(f"[设置密码] 提交注册请求（username_password_create），邮箱: {email}")
+    resp = session.post(url, headers=headers, data=body)
+    try:
+        data = resp.json()
+    except Exception:
+        data = {"status": resp.status_code, "text": (resp.text or "")[:500]}
+    if isinstance(data, dict):
+        data["_http_status"] = resp.status_code
+    if resp.status_code != 200:
+        logger.warning(f"[设置密码] 请求失败, 状态码: {resp.status_code}, 响应: {(resp.text or '')[:300]}")
+    else:
+        logger.info(f"[设置密码] 注册请求成功: {(data.get('page') or {}).get('type')}")
+    return data
 
 
 # def send_email_otp(session: BrowserSession) -> None:

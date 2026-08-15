@@ -7,6 +7,7 @@ import sys
 import argparse
 import logging
 import random
+import secrets
 import string
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
@@ -16,6 +17,7 @@ from config import REGISTER_EMAIL, REGISTER_NAME  # 这两个一般不在 WebUI 
 from config import twofa as _twofa_cfg
 from config import email as _email_cfg
 from config import register as _register_cfg
+from config import codex as _codex_cfg
 from core.session import BrowserSession
 from core.chatgpt_auth import get_providers, get_csrf_token, signin_openai
 from core.openai_auth import (
@@ -24,6 +26,8 @@ from core.openai_auth import (
     build_sentinel_header,
     validate_email_otp,
     create_account,
+    register_user,
+    auth_step_requires_password,
 )
 from core.account_export import (
     follow_oauth_callback,
@@ -241,6 +245,47 @@ def run_registration(
         validate_result = validate_email_otp(session, otp_code, sentinel_header_9)
         time.sleep(0.5)
 
+        # ==================== 步骤10.5: 设置密码 ====================
+        # 受 ENABLE_POST_REGISTER_PASSWORD 控制。仅当服务端选择 password 分支
+        # （continue_url / page.type 含 password）时提交 username_password_create；
+        # passwordless 分支强行调用会推进错 auth step，自动跳过。
+        # 密码来源：POST_REGISTER_PASSWORD 配置，留空则随机生成（随账号落盘）。
+        password = ""
+        if getattr(_codex_cfg, "ENABLE_POST_REGISTER_PASSWORD", False):
+            cont_url = (validate_result or {}).get("continue_url") or ""
+            page_type = str(((validate_result or {}).get("page") or {}).get("type") or "")
+            if auth_step_requires_password(cont_url, page_type):
+                password = str(getattr(_codex_cfg, "POST_REGISTER_PASSWORD", "") or "").strip()
+                if not password:
+                    password = secrets.token_urlsafe(12)
+                try:
+                    # 先导航到服务端指定的密码页建立状态，再取 sentinel token 并提交
+                    nav_url = cont_url or "https://auth.openai.com/create-account/password"
+                    nav_headers = session.get_auth_navigate_headers(
+                        referer="https://auth.openai.com/email-verification")
+                    nav_headers["sec-fetch-site"] = "same-origin"
+                    session.get(nav_url, headers=nav_headers, allow_redirects=True)
+                    time.sleep(0.3)
+                    sentinel_resp_pw = request_sentinel_token(session, "username_password_create")
+                    sentinel_header_pw, _ = build_sentinel_header(
+                        session, sentinel_resp_pw, "username_password_create")
+                    time.sleep(0.3)
+                    pw_result = register_user(session, email, password, sentinel_header_pw)
+                    pw_ok = isinstance(pw_result, dict) and pw_result.get("_http_status") == 200
+                    if pw_ok:
+                        logger.info(f"[注册] 密码已设置：{email}")
+                    else:
+                        err = str((pw_result or {}).get("error") or pw_result or "未知")[:200]
+                        logger.warning(f"[注册] 设置密码失败（不阻断注册）: {err}")
+                        password = ""
+                except Exception as exc:
+                    logger.warning(
+                        f"[注册] 设置密码异常（不阻断注册）: {type(exc).__name__}: {exc}")
+                    password = ""
+            else:
+                logger.info(
+                    f"[注册] 服务端选择 passwordless 分支（{page_type or '-'}），跳过设置密码")
+
         # ==================== 阶段5: 完成注册 ====================
         # 步骤11: 获取 Sentinel Token（oauth_create_account）
         sentinel_resp_11 = request_sentinel_token(session, "oauth_create_account")
@@ -319,12 +364,14 @@ def run_registration(
             email_source=EMAIL_SOURCE,
             proxy_used=session.proxy or None,
             batch_dir=batch_dir,
+            password=password,
             extra={
                 "user": session_info.get("user"),
                 "account": session_info.get("account"),
                 "expires": session_info.get("expires"),
                 "device_id": session.device_id,
                 "codex": codex_result,
+                "password": password,
             },
         )
 

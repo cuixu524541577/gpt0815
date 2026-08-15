@@ -423,6 +423,7 @@ def save_account_data(
     proxy_used: str | None = None,
     batch_dir: Path | None = None,
     auto_plan_check: bool | None = None,
+    password: str | None = None,   # 注册后设置的账号密码（可选）
 ) -> int:
     """
     将账号信息保存到本地 JSON/TXT 文件存储。
@@ -453,6 +454,7 @@ def save_account_data(
         extra=extra,
         codex_status=codex_status,
         codex_error=codex_error,
+        password=password,
     )
     batch_folder = _append_batch_archive(
         row_id=row_id,

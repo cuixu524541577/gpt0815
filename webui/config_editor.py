@@ -172,11 +172,11 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "REGISTER_WORKERS", "file": "register.py", "type": "int", "group": "注册默认",
-        "label": "并发注册数", "help": "同时运行的注册任务数",
+        "label": "并发注册数", "help": "同时运行的注册任务数（最小 1）", "min": 1,
     },
     {
         "key": "REGISTER_BATCH_COUNT", "file": "register.py", "type": "int", "group": "注册默认",
-        "label": "单批注册数", "help": "每批注册账号数量",
+        "label": "单批注册数", "help": "每批注册账号数量（最小 1）", "min": 1,
     },
     {
         "key": "PROXY_POOL", "file": "proxy.py", "type": "list_str_multiline", "group": "代理池",
@@ -602,6 +602,16 @@ def update_config(updates: dict) -> dict:
         if field.get("secret") and value in ("", "********"):
             ignored.append(key)
             continue
+        # int 字段边界校验（min/max）
+        if field["type"] == "int":
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError):
+                raise ValueError(f"{key} 必须是整数")
+            if field.get("min") is not None and int_value < int(field["min"]):
+                raise ValueError(f"{key} 不能小于 {field['min']}")
+            if field.get("max") is not None and int_value > int(field["max"]):
+                raise ValueError(f"{key} 不能大于 {field['max']}")
         by_file.setdefault(field["file"], []).append((field, value))
 
     for filename, items in by_file.items():

@@ -235,10 +235,17 @@ function closeModal(id) {
 }
 
 async function saveCard() {
+  const cardNumber = $('#cardPoolCardNumber').value.trim();
+  const expires = $('#cardPoolCardExpires').value.trim();
+  const cvv = $('#cardPoolCardCvv').value.trim();
+  // 必填校验（字段级提示）
+  if (!cardNumber) { showToast('卡号不能为空', 'error'); $('#cardPoolCardNumber').focus(); return; }
+  if (!expires) { showToast('有效期不能为空（MM/YY 或 MM/YYYY）', 'error'); $('#cardPoolCardExpires').focus(); return; }
+  if (!cvv) { showToast('CVV 不能为空', 'error'); $('#cardPoolCardCvv').focus(); return; }
   const payload = {
-    card_number: $('#cardPoolCardNumber').value.trim(),
-    expires: $('#cardPoolCardExpires').value.trim(),
-    cvv: $('#cardPoolCardCvv').value.trim(),
+    card_number: cardNumber,
+    expires: expires,
+    cvv: cvv,
     billing_zip: $('#cardPoolCardZip').value.trim(),
     billing_country: $('#cardPoolCardCountry').value.trim() || 'US',
     notes: $('#cardPoolCardNotes').value.trim(),

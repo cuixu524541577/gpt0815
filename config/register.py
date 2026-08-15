@@ -21,6 +21,15 @@ REGISTER_NAME = ""
 # 关闭后不会在注册完成后立刻访问 backend-api/accounts/check，后续可在账号列表手动查询。
 AUTO_PLAN_CHECK_AFTER_REGISTER = False
 
+# 默认生日（WebUI 批量注册任务参数，格式 YYYY-MM-DD）
+REGISTER_BIRTHDAY: str = "2000-01-01"
+
+# 并发注册数（同时运行的注册任务线程数，最小 1）
+REGISTER_WORKERS: int = 3
+
+# 单批注册数（每批提交的注册任务数，最小 1）
+REGISTER_BATCH_COUNT: int = 1
+
 # 注册成功并拿到 accessToken 后，在浏览器里随机停留一段时间再关闭连接。
 # 格式：最小秒,最大秒。设为 "0,0" 表示不额外停留。
 POST_REGISTER_DWELL_SECONDS_RANGE = "18,45"
@@ -30,6 +39,9 @@ apply_env_overrides(globals(), {
     'REGISTER_EMAIL': 'str',
     'REGISTER_NAME': 'str',
     'AUTO_PLAN_CHECK_AFTER_REGISTER': 'bool',
+    'REGISTER_BIRTHDAY': 'str',
+    'REGISTER_WORKERS': 'int',
+    'REGISTER_BATCH_COUNT': 'int',
     'POST_REGISTER_DWELL_SECONDS_RANGE': 'str',
 })
 

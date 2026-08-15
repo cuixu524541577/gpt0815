@@ -1414,6 +1414,7 @@ button.btn:disabled, .actions button:disabled, .pager-bar button:disabled {
 .table-wrap {
   overflow: auto;
   max-width: 100%;
+  min-height: 260px;  /* 大屏下列表不塌缩，空状态引导保持可见 */
   border-top: 1px solid rgba(148, 163, 184, .08);
 }
 #accountsTableWrap {
@@ -3689,27 +3690,27 @@ body.credential-modal-open { overflow: hidden; }
 
 /* 版本检查 / Docker 更新 */
 .version-chip {
-  margin-top: 6px;
-  min-height: 26px;
-  border: 1px solid rgba(45, 212, 191, .22);
-  border-radius: 999px;
-  padding: 4px 9px;
+  margin-top: 5px;
+  min-height: 22px;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 7px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: rgba(20, 184, 166, .08);
-  color: #99f6e4;
+  gap: 6px;
+  background: transparent;
+  color: #7dd3fc;
   font: inherit;
   font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .04em;
+  font-weight: 700;
+  letter-spacing: .03em;
   cursor: pointer;
-  transition: border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+  white-space: nowrap;
+  transition: background .16s ease, color .16s ease;
 }
 .version-chip:hover {
-  border-color: rgba(45, 212, 191, .54);
-  background: rgba(20, 184, 166, .14);
-  box-shadow: 0 10px 24px rgba(20, 184, 166, .12);
+  background: rgba(125, 211, 252, .1);
+  color: #bae6fd;
 }
 .version-chip.has-update {
   color: #fcd34d;

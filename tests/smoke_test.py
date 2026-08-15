@@ -83,6 +83,16 @@ for ep in ["/api/summary", "/api/accounts?page=1&page_size=20", "/api/outlook?pa
 d = c.get("/api/config").get_json()
 secrets = [f for f in d if f.get("secret")]
 check("secret 全部掩码", all(f["value"] in ("", "********") for f in secrets))
+# 注册配置边界（P1）：0 注册数/0 并发必须被拒绝
+r = c.post("/api/config", json={"updates": {"REGISTER_WORKERS": 0}})
+check("0 并发被拒 400", r.status_code == 400 and "不能小于" in (r.get_json() or {}).get("error", ""))
+r = c.post("/api/config", json={"updates": {"REGISTER_BATCH_COUNT": 0}})
+check("0 批注册数被拒 400", r.status_code == 400 and "不能小于" in (r.get_json() or {}).get("error", ""))
+r = c.post("/api/config", json={"updates": {"REGISTER_WORKERS": 2}})
+check("合法并发保存 200", r.status_code == 200)
+c.post("/api/config", json={"updates": {"REGISTER_WORKERS": 3}})
+birthday = next((f for f in d if f["key"] == "REGISTER_BIRTHDAY"), {})
+check("生日字段有默认值", birthday.get("value") == "2000-01-01")
 r = c.post("/api/config", json={"updates": {"SMS_API_KEY": "********", "OTP_MAX_WAIT": 120}})
 d = r.get_json()
 check("掩码值保存被忽略", "SMS_API_KEY" in d["ignored"] and "OTP_MAX_WAIT" in d["updated"])

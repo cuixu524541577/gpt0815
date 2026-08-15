@@ -257,6 +257,11 @@
   function validateRegisterBirthday() {
     const input = $('#configForm [data-key="REGISTER_BIRTHDAY"]');
     if (!input) return true;
+    // 空值回填默认生日（与占位符一致），而不是判空报错
+    if (!String(input.value ?? '').trim()) {
+      input.value = '2000-01-01';
+      setConfigControlValue?.('REGISTER_BIRTHDAY', '2000-01-01');
+    }
     const valid = isValidRegisterBirthday(String(input.value ?? ''));
     input.setCustomValidity(valid ? '' : REGISTER_BIRTHDAY_ERROR);
     if (valid) {
@@ -419,6 +424,7 @@
   }
 
   function updateFeatureVisibility() {
+    updateConfigBadges?.();
     const showCodexSubOptions = codexOAuthEnabled();
     if (!showCodexSubOptions) {
       setConfigControlValue('CODEX_OAUTH_SKIP_PHONE', 'false');
@@ -1023,6 +1029,23 @@
     }
   }
 
+  function visibleFieldCount(panelEl) {
+    if (!panelEl) return 0;
+    return Array.from(panelEl.querySelectorAll('.config-field-row'))
+      .filter(row => !row.classList.contains('hidden')).length;
+  }
+
+  function updateConfigBadges() {
+    $$('[data-config-panel]').forEach(panel => {
+      const count = visibleFieldCount(panel);
+      const tabId = panel.dataset.configPanel;
+      const btn = $(`#configForm [data-config-tab="${tabId}"] small`);
+      if (btn) btn.textContent = String(count);
+      const head = panel.querySelector('.config-count');
+      if (head) head.textContent = `${count} 项`;
+    });
+  }
+
   function renderConfigTabs() {
     const availableTabs = CONFIG_TABS.map(tab => ({ ...tab, fields: classifyFields(CONFIG, tab) }));
     if (!availableTabs.some(t => t.id === activeConfigTab)) {
@@ -1035,6 +1058,7 @@
       <button type="button" class="config-tab-btn${tab.id === activeConfigTab ? ' active' : ''}" data-config-tab="${esc(tab.id)}">
         <span>${esc(tab.title)}</span><small>${tab.fields.length}</small>
       </button>`).join('');
+    setTimeout(updateConfigBadges, 0);
 
     const panels = availableTabs.map(tab => {
       const sourceHint = tab.id === 'email'
@@ -1178,6 +1202,18 @@
       setConfigControlValue('CODEX_OAUTH_SKIP_PHONE', 'false');
     }
     if (!validateRegisterBirthday()) return;
+    // int 字段边界校验（与后端一致）
+    for (const f of CONFIG) {
+      if (f.type !== 'int' || f.min === undefined) continue;
+      const v = updates[f.key];
+      if (v !== undefined && v !== null && v !== '' && v < f.min) {
+        showToast(`${f.label}不能小于 ${f.min}`, 'error');
+        setActiveConfigTab('register');
+        const el = $(`#configForm [data-key="${f.key}"]`);
+        el?.focus();
+        return;
+      }
+    }
     const saveButton = $('#btnSaveConfig');
     const defaultSaveLabel = saveButton?.dataset.defaultLabel || saveButton?.textContent || '保存配置';
     if (saveButton) {

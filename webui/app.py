@@ -625,6 +625,9 @@ def create_app() -> Flask:
             return jsonify({"ok": False, "error": "无更新内容"}), 400
         try:
             result = config_editor.update_config(updates)
+        except ValueError as exc:
+            # 参数校验失败（如 int 越界）→ 400，给前端可读错误
+            return jsonify({"ok": False, "error": str(exc)}), 400
         except Exception as exc:
             logger.exception("配置写入失败")
             return jsonify({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), 500

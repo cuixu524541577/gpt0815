@@ -158,3 +158,29 @@ def test_register_user_empty_values():
     url, headers, body = sess.posts[0]
     import json as _json
     assert _json.loads(body) == {"password": "", "username": ""}
+
+
+# ------------------------------------------------------------
+# 注册配置边界（P1：0 注册数/0 并发拒绝）
+# ------------------------------------------------------------
+def test_register_workers_min_bound():
+    from webui import config_editor as ce
+    with pytest.raises(ValueError, match="不能小于 1"):
+        ce.update_config({"REGISTER_WORKERS": 0})
+    with pytest.raises(ValueError, match="不能小于 1"):
+        ce.update_config({"REGISTER_BATCH_COUNT": 0})
+    with pytest.raises(ValueError, match="不能小于 1"):
+        ce.update_config({"REGISTER_WORKERS": -3})
+    # 合法值可保存
+    r = ce.update_config({"REGISTER_WORKERS": 2, "REGISTER_BATCH_COUNT": 5})
+    assert "REGISTER_WORKERS" in r["updated"] and "REGISTER_BATCH_COUNT" in r["updated"]
+    ce.update_config({"REGISTER_WORKERS": 3, "REGISTER_BATCH_COUNT": 1})
+
+
+def test_register_birthday_has_default_value():
+    """REGISTER_BIRTHDAY 已真实定义（默认 2000-01-01），不再是无定义占位字段。"""
+    from webui import config_editor as ce
+    fields = {f["key"]: f for f in ce.get_config()}
+    assert fields["REGISTER_BIRTHDAY"]["value"] == "2000-01-01"
+    assert fields["REGISTER_WORKERS"]["value"] >= 1
+    assert fields["REGISTER_BATCH_COUNT"]["value"] >= 1

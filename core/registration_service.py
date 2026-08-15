@@ -645,6 +645,29 @@ def cancel_pending_jobs() -> int:
     return cancelled
 
 
+def resume_pending_jobs() -> int:
+    """把 pending/queued 状态的任务重新提交到线程池（进程重启后恢复队列用）。
+
+    账号是在任务执行时才从池里领取的（_run_one_job → _prepare_registration_args），
+    所以重新提交未开始的任务是安全的，不会重复消耗邮箱。
+    """
+    with _executor_lock:
+        jobs = db.list_jobs(limit=1000)
+        n = 0
+        for job in jobs:
+            if job.get("status") not in ("pending", "queued"):
+                continue
+            job_id = int(job["id"])
+            try:
+                get_executor().submit(_run_one_job, job_id, job.get("log_file") or "")
+                n += 1
+            except Exception as exc:
+                logger.exception("[Service] 恢复任务 #%s 提交线程池失败: %s", job_id, exc)
+    if n:
+        logger.info(f"[Service] 已恢复 {n} 个排队任务到线程池")
+    return n
+
+
 def request_stop_job(job_id: int) -> dict:
     """手动停止单个注册任务。pending 直接取消；running 设置停止标记，运行线程会在检查点退出。"""
     job = db.get_job(job_id)

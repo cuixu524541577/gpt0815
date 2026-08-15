@@ -120,6 +120,16 @@ def main() -> None:
 
     _startup_selfcheck()
 
+    # 重启后恢复未完成的注册队列（pending/queued 重新提交到线程池），
+    # 让"排队模式"跨进程重启依然生效。
+    try:
+        from core.registration_service import resume_pending_jobs
+        resumed = resume_pending_jobs()
+        if resumed:
+            logger.info(f"已恢复 {resumed} 个排队注册任务")
+    except Exception:
+        logger.exception("启动时恢复注册队列失败")
+
     app = create_app()
     url = f"http://{'127.0.0.1' if args.host in ('0.0.0.0', '::') else args.host}:{args.port}"
     logger.info(f"WebUI 已启动：{url}")

@@ -759,14 +759,12 @@ def register_compat_routes(app) -> None:
 
     @app.post("/api/jobs/resume-pending")
     def api_jobs_resume_pending():
-        with db._LOCK:
-            rows = db._load_jobs()
-            n = 0
-            for r in rows:
-                if r.get("status") == "pending":
-                    r["status"] = "queued"
-                    n += 1
-            db._save_jobs(rows)
+        """恢复排队任务：重新提交到线程池（重启后队列恢复入口）。"""
+        try:
+            from core.registration_service import resume_pending_jobs as _resume
+            n = _resume()
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), 500
         return jsonify({"ok": True, "resumed": n})
 
     @app.post("/api/jobs/mark-running-failed")

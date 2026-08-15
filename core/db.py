@@ -2,15 +2,20 @@
 """
 本地文件持久化层。
 
-根目录文件分工：
+根目录文件分工（素材输入，Docker 挂载持久化）：
     - 用于注册的邮箱.txt      仅保留可继续注册的邮箱素材
     - 注册成功的邮箱.txt      仅保存注册成功的邮箱素材，不追加 token
     - 注册成功的token.txt     每行只保存一个 access token
+
+data/ 目录（Docker 挂载持久化；DB 状态必须在这里，否则容器重建即丢）：
     - 用于注册的邮箱.json     Outlook 账号池完整状态
     - 注册成功的邮箱.json     注册成功账号完整状态
+    - 注册任务.json           任务队列（排队/运行状态）
 """
 import hashlib
 import json
+import logging
+import shutil
 import sqlite3
 import threading
 import uuid
@@ -19,26 +24,40 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_DATA_DIR = _PROJECT_ROOT
-_LEGACY_DATA_DIR = _PROJECT_ROOT / "data"
+# 所有状态 DB 统一放 data/（docker-compose 已挂载持久化；放根目录会落在容器
+# 可写层，容器重建/升级后邮箱池、任务队列、成功账号全部丢失）
+_DATA_DIR = _PROJECT_ROOT / "data"
+_LEGACY_DATA_DIR = _DATA_DIR
 _LOG_DIR = _PROJECT_ROOT / "注册日志"
 _PLAN_CHECK_STALE_SECONDS = 120
 _PLAN_CHECK_QUEUE_STALE_SECONDS = 1800
 
-_OUTLOOK_JSON = _PROJECT_ROOT / "用于注册的邮箱.json"
+_OUTLOOK_JSON = _DATA_DIR / "用于注册的邮箱.json"
 _OUTLOOK_TXT = _PROJECT_ROOT / "用于注册的邮箱.txt"
-_GENERIC_API_EMAIL_JSON = _PROJECT_ROOT / "用于注册的API邮箱.json"
+_GENERIC_API_EMAIL_JSON = _DATA_DIR / "用于注册的API邮箱.json"
 _GENERIC_API_EMAIL_TXT = _PROJECT_ROOT / "用于注册的API邮箱.txt"
-_ACCOUNTS_JSON = _PROJECT_ROOT / "注册成功的邮箱.json"
+_ACCOUNTS_JSON = _DATA_DIR / "注册成功的邮箱.json"
 _ACCOUNTS_TXT = _PROJECT_ROOT / "注册成功的邮箱.txt"
 _TOKENS_TXT = _PROJECT_ROOT / "注册成功的token.txt"
-_JOBS_JSON = _PROJECT_ROOT / "注册任务.json"
+_JOBS_JSON = _DATA_DIR / "注册任务.json"
 _VIEWER_HTML = _PROJECT_ROOT / "accounts_viewer.html"
 _CODEX_DIR = _PROJECT_ROOT / "codex_accounts"
 # 导出状态单独存：{ "codex-邮箱-plan.json": {"exported_at": "...", "exported_count": N} }
 # 不污染 CPA 兼容的原文件
-_CODEX_EXPORT_STATE = _PROJECT_ROOT / "codex_导出状态.json"
+_CODEX_EXPORT_STATE = _DATA_DIR / "codex_导出状态.json"
+
+# 旧版本把状态 DB 写在项目根目录；升级后首次启动迁移到 data/（目标已存在则不动，
+# 源文件保留作备份）。只有素材 .txt 仍留在根目录（用户手动维护的输入文件）。
+_ROOT_JSON_LEGACY = (
+    ("用于注册的邮箱.json", _OUTLOOK_JSON),
+    ("用于注册的API邮箱.json", _GENERIC_API_EMAIL_JSON),
+    ("注册成功的邮箱.json", _ACCOUNTS_JSON),
+    ("注册任务.json", _JOBS_JSON),
+    ("codex_导出状态.json", _CODEX_EXPORT_STATE),
+)
 
 _LEGACY_SQLITE = _LEGACY_DATA_DIR / "registrations.db"
 _LEGACY_OUTLOOK_JSON = _LEGACY_DATA_DIR / "outlook_accounts.json"
@@ -54,6 +73,20 @@ def _now() -> str:
 def _ensure_storage() -> None:
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
     _LOG_DIR.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_root_files()
+
+
+def _migrate_legacy_root_files() -> None:
+    """旧版本状态 DB 在项目根目录（容器可写层），升级后迁到 data/ 持久化目录。"""
+    for name, dst in _ROOT_JSON_LEGACY:
+        src = _PROJECT_ROOT / name
+        try:
+            if src.exists() and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+                logger.info("[DB] 已将 %s 迁移到 data/（根目录旧文件保留为备份）", name)
+        except OSError:
+            logger.warning("[DB] 迁移 %s 到 data/ 失败", name, exc_info=True)
 
 
 def _read_json(path: Path, default: Any) -> Any:

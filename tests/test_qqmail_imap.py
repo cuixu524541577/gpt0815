@@ -84,8 +84,11 @@ def test_imap_id_sent_for_netease(monkeypatch):
     monkeypatch.setattr(_email_cfg, "QQ_EMAIL", "a@163.com")
     monkeypatch.setattr(_email_cfg, "QQ_IMAP_PASSWORD", "authcode")
     monkeypatch.setattr(qc.imaplib, "IMAP4_SSL", FakeIMAP)
+    # 模拟标准库缺 ID 命令（真实 3.12/3.13 均缺）：连接后应自动注册并发送
+    qc.imaplib.Commands.pop("ID", None)
 
     qc._connect_imap()
+    assert "ID" in qc.imaplib.Commands
     assert calls and calls[0][0] == "ID"
     assert '("name"' in calls[0][1][0]
 

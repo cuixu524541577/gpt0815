@@ -170,8 +170,12 @@ def _imap_identify(mail: imaplib.IMAP4_SSL) -> None:
         '"vendor" "gpt-register-console" "support-email" "kefu@163.com")'
     )
     try:
+        # imaplib 的 Commands 表没有内置 ID 命令（Python 3.12/3.13 均无），
+        # 不注册的话 _simple_command 直接抛 KeyError，ID 根本发不出去。
+        if "ID" not in imaplib.Commands:
+            imaplib.Commands["ID"] = ("AUTH", "NONAUTH")
         typ, _data = mail._simple_command("ID", identity)
-        logger.debug("[QQMail] IMAP ID 响应: %s", typ)
+        logger.info("[QQMail] IMAP ID 身份声明已发送，响应: %s", typ)
     except Exception as exc:
         logger.warning("[QQMail] IMAP ID 发送失败（忽略，继续尝试收信）: %s", exc)
 

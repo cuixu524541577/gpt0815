@@ -47,9 +47,42 @@ PLAN_CHECK_MIN_INTERVAL = 0.4
 PLAN_CHECK_JITTER = 0.3
 
 
+# ============================================================
+# 动态住宅代理池（API 提取型）
+# 从厂商 API 拉取代理列表，与静态 PROXY_POOL 合并使用（见 core/proxy_pool.py）。
+# 支持：Oxylabs key URL、Webshare list API、通用提取 API（纯文本/JSON 自动识别）。
+# 网关型（固定地址+动态用户名，如 BrightData/IPRoyal）直接写进 PROXY_POOL 即可。
+# ============================================================
+
+# 总开关：启用动态代理池
+PROXY_DYNAMIC_ENABLED: bool = False
+
+# 提取 API 地址。示例：
+#   Oxylabs：https://proxy.oxylabs.io/key/{API_KEY}
+#   Webshare：https://proxy.webshare.io/api/v2/proxy/list/?page=1&page_size=25
+#   通用提取：https://api.proxy-service.com/get?key=YOUR_API_KEY
+PROXY_DYNAMIC_API_URL: str = ""
+
+# API 认证：支持 "Bearer xxx" / "Token xxx" / "user:pass"（Basic）/ 任意 "Header: value"
+PROXY_DYNAMIC_API_AUTH: str = "Token wrong"
+
+# 拉取间隔（分钟）；过期后自动重新拉取，失败沿用旧池
+PROXY_DYNAMIC_REFRESH_MINUTES: int = 30
+
+# 动态池容量上限（超过随机截断）
+PROXY_DYNAMIC_MAX_POOL: int = 200
+
+
 def pick_proxy() -> str:
-    """从代理池中随机抽取一个代理 URL；池为空时返回空串（即不使用代理）。"""
-    return random.choice(PROXY_POOL) if PROXY_POOL else ""
+    """从代理池中随机抽取一个代理 URL；池为空时返回空串（即不使用代理）。
+
+    动态住宅代理池优先（未过期），静态 PROXY_POOL 兜底。
+    """
+    try:
+        from core.proxy_pool import pick_proxy as _dynamic_pick
+        return _dynamic_pick()
+    except Exception:
+        return random.choice(PROXY_POOL) if PROXY_POOL else ""
 
 
 # 兼容入口：默认每次进程启动随机选一个，作为本次注册全程的固定代理
@@ -58,6 +91,11 @@ PROXY = pick_proxy()
 # ---- .env overrides for WebUI editable fields ----
 apply_env_overrides(globals(), {
     'PROXY_POOL': 'list_str_multiline',
+    'PROXY_DYNAMIC_ENABLED': 'bool',
+    'PROXY_DYNAMIC_API_URL': 'str',
+    'PROXY_DYNAMIC_API_AUTH': 'str',
+    'PROXY_DYNAMIC_REFRESH_MINUTES': 'int',
+    'PROXY_DYNAMIC_MAX_POOL': 'int',
     'PLAN_CHECK_PROXY_MODE': 'str',
     'PLAN_CHECK_PROXY': 'str',
     'PLAN_CHECK_TIMEOUT': 'float',

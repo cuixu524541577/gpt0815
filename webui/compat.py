@@ -91,16 +91,20 @@ def _check_import_size(text: str) -> str | None:
 def _proxy_for_task() -> str:
     """每个任务从代理池随机选一个代理（池空返回空串）。
 
-    注意：config.proxy.PROXY 是进程启动时定死的；这里动态 pick 实现任务级轮换，
-    批量注册时应配置多代理池，避免单 IP 高频注册被风控。
+    动态住宅代理池优先（未过期），静态 PROXY_POOL 兜底；
+    实现任务级轮换，批量注册时应配置多代理池，避免单 IP 高频注册被风控。
     """
     try:
-        from config import proxy as _proxy_cfg
-        pool = getattr(_proxy_cfg, "PROXY_POOL", None) or []
-        import random as _r
-        return _r.choice(pool) if pool else ""
+        from core.proxy_pool import pick_proxy as _dynamic_pick
+        return _dynamic_pick()
     except Exception:
-        return ""
+        try:
+            from config import proxy as _proxy_cfg
+            pool = getattr(_proxy_cfg, "PROXY_POOL", None) or []
+            import random as _r
+            return _r.choice(pool) if pool else ""
+        except Exception:
+            return ""
 
 
 # ---------------- 告警记录（任务连续失败等） ----------------
@@ -2460,6 +2464,36 @@ def register_compat_routes(app) -> None:
         if result.get("ignored"):
             return jsonify({"ok": False, "error": f"忽略未识别字段: {result['ignored']}"}), 400
         return jsonify({"ok": True, "updated": result.get("updated", []), "message": "已保存（立即生效）"})
+
+    # ---------------- 动态代理池管理 ----------------
+    @app.get("/api/proxy/dynamic")
+    def api_proxy_dynamic_status():
+        from core import proxy_pool as _pp
+        return jsonify({"ok": True, "summary": _pp.pool_summary()})
+
+    @app.post("/api/proxy/dynamic/refresh")
+    def api_proxy_dynamic_refresh():
+        from core import proxy_pool as _pp
+        try:
+            pool = _pp.refresh_pool()
+            return jsonify({"ok": True, "summary": _pp.pool_summary(),
+                            "message": f"拉取成功，池内共 {len(pool.get('proxies', []))} 条"})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                            "message": f"{type(exc).__name__}: {exc}"}), 400
+
+    @app.post("/api/proxy/dynamic/test")
+    def api_proxy_dynamic_test():
+        """测试拉取（不写入池），返回解析出的前 N 条。"""
+        from core import proxy_pool as _pp
+        try:
+            proxies = _pp.fetch_dynamic_proxies()
+            return jsonify({"ok": True, "count": len(proxies),
+                            "sample": proxies[:10],
+                            "message": f"解析成功 {len(proxies)} 条"})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                            "message": f"{type(exc).__name__}: {exc}"}), 400
 
     # ---------------- 代理/中继测试 ----------------
     def _proxy_http_get(proxy_url, url, timeout):

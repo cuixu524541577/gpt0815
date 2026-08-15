@@ -108,7 +108,10 @@
         { url: PROXY_POOL_PORTAL_URL, label: '打开代理官网' },
         { url: PROXY_POOL_PORTAL_2_URL, label: '打开代理官网2' },
       ],
-      keys: ['PROXY_MODE', 'PROXY_EGRESS_COUNTRY', 'PROXY_POOL', 'REGISTER_PROXY_POOL', 'CODEX_PROXY_POOL'],
+      keys: ['PROXY_MODE', 'PROXY_EGRESS_COUNTRY', 'PROXY_POOL',
+             'PROXY_DYNAMIC_ENABLED', 'PROXY_DYNAMIC_API_URL', 'PROXY_DYNAMIC_API_AUTH',
+             'PROXY_DYNAMIC_REFRESH_MINUTES', 'PROXY_DYNAMIC_MAX_POOL',
+             'REGISTER_PROXY_POOL', 'CODEX_PROXY_POOL'],
     },
     {
       id: 'sms',
@@ -953,7 +956,61 @@
           <button type="button" class="btn primary" data-proxy-test="ALL" data-proxy-test-advanced="true">测试全部</button>
         </div>
       </div>
-      <div id="proxyTestResult"></div>`;
+      <div id="proxyTestResult"></div>
+      <div class="proxy-tools" style="margin-top:14px">
+        <div>
+          <strong>动态住宅代理池</strong>
+          <p>从厂商 API 自动拉取代理列表，与静态池合并轮换（配置见上方「启用动态代理池」等字段）。支持 Oxylabs / Webshare / 通用提取 API。</p>
+        </div>
+        <div class="proxy-test-actions">
+          <button type="button" class="btn" id="proxyDynamicStatus">查看状态</button>
+          <button type="button" class="btn" id="proxyDynamicTest">测试拉取</button>
+          <button type="button" class="btn primary" id="proxyDynamicRefresh">刷新并合并</button>
+        </div>
+        <div id="proxyDynamicResult" class="muted" style="margin-top:8px;font-size:12px"></div>
+      </div>`;
+  }
+
+  async function loadProxyDynamicStatus(quiet = false) {
+    const box = $('#proxyDynamicResult');
+    try {
+      const r = await api('/api/proxy/dynamic');
+      const s = r.summary || {};
+      const state = s.enabled
+        ? `已启用 · 池内 ${s.count} 条 · 拉取于 ${s.fetched_at || '-'}${s.expired ? '（已过期，将自动刷新）' : ''} · 间隔 ${s.refresh_minutes} 分钟`
+        : `未启用（配置页「启用动态代理池」打开后生效）`;
+      if (box) box.innerHTML = `${state}${s.api_url ? ` · 源：<span class="mono">${esc(s.api_url)}</span>` : ''}`;
+    } catch (e) {
+      if (!quiet && box) box.innerHTML = noticeHtml('error', e.message, '状态查询失败');
+    }
+  }
+
+  async function testProxyDynamic() {
+    const box = $('#proxyDynamicResult');
+    if (!box) return;
+    box.innerHTML = '测试拉取中…';
+    try {
+      const r = await api('/api/proxy/dynamic/test', { method: 'POST' });
+      const sample = (r.sample || []).map(x => `<span class="mono">${esc(x)}</span>`).join('<br>');
+      box.innerHTML = `${r.message}${sample ? '<br>示例：<br>' + sample : ''}`;
+      showToast(r.message, 'success');
+    } catch (e) {
+      box.innerHTML = noticeHtml('error', e.message, '测试拉取失败');
+    }
+  }
+
+  async function refreshProxyDynamic() {
+    const box = $('#proxyDynamicResult');
+    if (!box) return;
+    box.innerHTML = '正在拉取并合并…';
+    try {
+      const r = await api('/api/proxy/dynamic/refresh', { method: 'POST' });
+      box.innerHTML = r.message;
+      showToast(r.message, 'success');
+      loadProxyDynamicStatus(true);
+    } catch (e) {
+      box.innerHTML = noticeHtml('error', e.message, '刷新失败');
+    }
   }
 
   function proxyTestScope(scope) {
@@ -1252,6 +1309,13 @@
   });
 
   $('#btnSaveConfig')?.addEventListener('click', saveConfig);
+  // 动态代理池（事件委托，渲染后可用）
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.id === 'proxyDynamicStatus') loadProxyDynamicStatus();
+    else if (t.id === 'proxyDynamicTest') testProxyDynamic();
+    else if (t.id === 'proxyDynamicRefresh') refreshProxyDynamic();
+  });
   window.GFR.pages = window.GFR.pages || {};
   window.GFR.pages.config = {
     loadConfig,

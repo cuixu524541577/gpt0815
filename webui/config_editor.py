@@ -180,7 +180,27 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "PROXY_POOL", "file": "proxy.py", "type": "list_str_multiline", "group": "代理池",
-        "label": "代理池(每行一个)", "help": "每行一个代理 URL，留空行会被忽略；为空则不使用代理",
+        "label": "代理池(每行一个)", "help": "每行一个代理 URL，留空行会被忽略；为空则不使用代理；网关型动态代理（BrightData/IPRoyal 等）直接填这里",
+    },
+    {
+        "key": "PROXY_DYNAMIC_ENABLED", "file": "proxy.py", "type": "bool", "group": "代理池",
+        "label": "启用动态代理池", "help": "从厂商 API 拉取住宅代理列表，与静态池合并轮换（见下方 API 地址）",
+    },
+    {
+        "key": "PROXY_DYNAMIC_API_URL", "file": "proxy.py", "type": "str", "group": "代理池",
+        "label": "动态代理 API 地址", "help": "Oxylabs: https://proxy.oxylabs.io/key/{KEY}；Webshare: https://proxy.webshare.io/api/v2/proxy/list/；通用提取 API 亦可",
+    },
+    {
+        "key": "PROXY_DYNAMIC_API_AUTH", "file": "proxy.py", "type": "str", "group": "代理池",
+        "label": "动态代理 API 认证", "help": "Bearer xxx / Token xxx / user:pass（Basic）/ 任意 Header: value", "secret": True,
+    },
+    {
+        "key": "PROXY_DYNAMIC_REFRESH_MINUTES", "file": "proxy.py", "type": "int", "group": "代理池",
+        "label": "动态池刷新间隔(分钟)", "help": "过期自动重新拉取，失败沿用旧池（1-1440）", "min": 1, "max": 1440,
+    },
+    {
+        "key": "PROXY_DYNAMIC_MAX_POOL", "file": "proxy.py", "type": "int", "group": "代理池",
+        "label": "动态池容量上限", "help": "超过随机截断（1-5000）", "min": 1, "max": 5000,
     },
     {
         "key": "PROXY_MODE", "file": "proxy.py", "type": "str", "group": "代理池",

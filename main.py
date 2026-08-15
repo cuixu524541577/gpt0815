@@ -253,7 +253,8 @@ def run_registration(
         password = ""
         if getattr(_codex_cfg, "ENABLE_POST_REGISTER_PASSWORD", False):
             cont_url = (validate_result or {}).get("continue_url") or ""
-            page_type = str(((validate_result or {}).get("page") or {}).get("type") or "")
+            page_obj = (validate_result or {}).get("page")
+            page_type = str((page_obj.get("type") if isinstance(page_obj, dict) else "") or "")
             if auth_step_requires_password(cont_url, page_type):
                 password = str(getattr(_codex_cfg, "POST_REGISTER_PASSWORD", "") or "").strip()
                 if not password:

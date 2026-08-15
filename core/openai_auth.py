@@ -396,7 +396,8 @@ def register_user(session: BrowserSession, email: str, password: str, sentinel_h
     if resp.status_code != 200:
         logger.warning(f"[设置密码] 请求失败, 状态码: {resp.status_code}, 响应: {(resp.text or '')[:300]}")
     else:
-        logger.info(f"[设置密码] 注册请求成功: {(data.get('page') or {}).get('type')}")
+        page_type_log = (data.get("page") or {}).get("type") if isinstance(data, dict) else None
+        logger.info(f"[设置密码] 注册请求成功: {page_type_log}")
     return data
 
 

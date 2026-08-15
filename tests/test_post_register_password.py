@@ -123,3 +123,38 @@ def test_password_config_field_masked():
     field = fields.get("POST_REGISTER_PASSWORD")
     assert field is not None, "POST_REGISTER_PASSWORD 应在配置白名单"
     assert field.get("secret") is True, "密码字段应标记 secret（掩码显示）"
+
+
+# ------------------------------------------------------------
+# 健壮性边界（畸形输入不崩溃）
+# ------------------------------------------------------------
+def test_requires_password_malformed_inputs():
+    """任何畸形输入都不应抛异常。"""
+    for bad in (None, 0, 1.5, ["x"], {"a": 1}, object(), b"bytes"):
+        assert auth_step_requires_password(bad, "") in (True, False)
+        assert auth_step_requires_password("", bad) in (True, False)
+    # 超长输入
+    assert auth_step_requires_password("password" * 20000, "") is True
+    assert auth_step_requires_password("a" * 100000, "b" * 100000) is False
+    # 特殊字符：URL 编码的 pass%20word 不算 password 子串；完整出现才算
+    assert auth_step_requires_password("https://x/pass%20word", "") is False
+    assert auth_step_requires_password("https://x/password/../about-you", "") is True
+
+
+def test_register_user_json_array_response():
+    """服务端返回合法 JSON 数组（异常但合法）→ 返回 list，不崩溃。"""
+    sess = FakeSession()
+    sess.set_response(FakeResp([1, 2, 3], status_code=200))
+    result = register_user(sess, "u@x.com", "pw12345678", "tok")
+    assert isinstance(result, list)  # 原样返回，调用方有 isinstance(dict) 防御
+
+
+def test_register_user_empty_values():
+    """空邮箱/空密码不应在本地抛异常（透传给上游）。"""
+    sess = FakeSession()
+    sess.set_response(FakeResp({"continue_url": "x"}, status_code=200))
+    result = register_user(sess, "", "", "tok")
+    assert result["_http_status"] == 200
+    url, headers, body = sess.posts[0]
+    import json as _json
+    assert _json.loads(body) == {"password": "", "username": ""}

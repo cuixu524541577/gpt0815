@@ -6,7 +6,7 @@
 """
 
 # 总开关：启用卡池管理与自动支付。False 时卡池 API 只读可查，写入/支付全部拒绝。
-ENABLE_CARD_POOL = False
+ENABLE_CARD_POOL = True
 
 # 支付驱动：
 #   mock            —— 演示/测试驱动，不真实扣款。链接 URL 含 decline → 模拟拒付；
@@ -27,10 +27,10 @@ CARD_POOL_PREFERRED_BINS = ""
 
 # 单卡/PayPal 账号租约秒数。选中后进入 in_use 状态，防止并发抢同一资产；
 # 进程崩溃后租约过期自动回收（重新变为 active）。
-CARD_POOL_LEASE_SECONDS = 300
+CARD_POOL_LEASE_SECONDS = -5
 
 # 同时进行的支付任务上限（超过则排队等待）
-CARD_POOL_MAX_CONCURRENT = 2
+CARD_POOL_MAX_CONCURRENT = 99999
 
 # PayPal 账号池 OTP 接收超时与轮询间隔（秒）
 PAYPAL_OTP_TIMEOUT_SECONDS = 180

@@ -49,6 +49,12 @@ def _i18n_bootstrap() -> str:
     return json.dumps(_I18N_CACHE, ensure_ascii=False)
 
 
+def _json_body():
+    """解析 JSON body；非 dict（字符串/数字/数组/null）一律视为空，避免下游 .get() 崩溃。"""
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+
 def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates")
 
@@ -251,7 +257,7 @@ def create_app() -> Flask:
         每行格式：email----password----clientId----refreshToken
         分隔符兼容 ---- 与 ====（外购素材两种都见过）。
         """
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         text = data.get("text") or ""
         from webui.compat import _check_import_size
         size_err = _check_import_size(str(text))
@@ -280,7 +286,7 @@ def create_app() -> Flask:
     @app.post("/api/outlook/status")
     def api_outlook_status():
         """手动改邮箱状态：body {email, status, note?}。status ∈ available/used/failed。"""
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         email = (data.get("email") or "").strip()
         status = (data.get("status") or "").strip()
         if not email or status not in ("available", "used", "failed"):
@@ -291,7 +297,7 @@ def create_app() -> Flask:
     @app.post("/api/outlook/delete")
     def api_outlook_delete():
         """从邮箱池彻底删除一个邮箱：body {email}。"""
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         email = (data.get("email") or "").strip()
         if not email:
             return jsonify({"ok": False, "error": "email 为空"}), 400
@@ -309,7 +315,7 @@ def create_app() -> Flask:
 
     @app.post("/api/domain-pool/status")
     def api_domain_pool_status():
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         email = (data.get("email") or "").strip()
         status = (data.get("status") or "").strip()
         if not email or status not in ("available", "used", "failed"):
@@ -319,7 +325,7 @@ def create_app() -> Flask:
 
     @app.post("/api/domain-pool/delete")
     def api_domain_pool_delete():
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         email = (data.get("email") or "").strip()
         if not email:
             return jsonify({"ok": False, "error": "email 为空"}), 400
@@ -375,7 +381,7 @@ def create_app() -> Flask:
         import json as _json
         from datetime import datetime as _dt
 
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         filenames = data.get("filenames") or []
         if not isinstance(filenames, list) or not filenames:
             return jsonify({"ok": False, "error": "filenames 必须是非空数组"}), 400
@@ -415,7 +421,7 @@ def create_app() -> Flask:
     @app.post("/api/codex/reset-export")
     def api_codex_reset_export():
         """清掉某个 codex 凭证的导出状态（重新标为未导出）。body {filename}。"""
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         fname = (data.get("filename") or "").strip()
         if not fname:
             return jsonify({"ok": False, "error": "filename 为空"}), 400
@@ -435,7 +441,7 @@ def create_app() -> Flask:
         防重复触发：补跑过程中再次调用同邮箱会被拒。
         """
         import threading
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         email = (data.get("email") or "").strip()
         if not email:
             return jsonify({"ok": False, "error": "email 为空"}), 400
@@ -556,7 +562,7 @@ def create_app() -> Flask:
     @app.post("/api/jobs")
     def api_jobs_create():
         """启动批量注册：body {count, workers}。"""
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         try:
             count = int(data.get("count", 1))
         except (TypeError, ValueError):
@@ -613,7 +619,7 @@ def create_app() -> Flask:
 
     @app.post("/api/config")
     def api_config_set():
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         updates = data.get("updates") if isinstance(data.get("updates"), dict) else data
         if not isinstance(updates, dict) or not updates:
             return jsonify({"ok": False, "error": "无更新内容"}), 400

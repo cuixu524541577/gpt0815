@@ -171,6 +171,12 @@ def clear_failures(ip: str) -> None:
 # Flask 路由（挂到 app 上）
 # 契约对齐 0.1.48 控制台前端：/api/auth/me、password/login、server-link 等
 # ----------------------------------------------------------
+def _json_body():
+    """解析 JSON body；非 dict 一律视为空。"""
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
+
+
 def register_auth_routes(app) -> None:
     @app.get("/api/auth/me")
     def api_auth_me():
@@ -197,7 +203,7 @@ def register_auth_routes(app) -> None:
         ip = _client_ip()
         if rate_limit_exceeded(ip):
             return jsonify({"ok": False, "error": "尝试过于频繁，请 15 分钟后再试"}), 429
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         if not verify_credentials(username, password):
@@ -251,7 +257,7 @@ def register_auth_routes(app) -> None:
         """
         if credentials_configured():
             return jsonify({"ok": False, "error": "登录凭据已配置，请直接登录"}), 403
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         confirm = data.get("confirm_password") or ""
@@ -286,7 +292,7 @@ def register_auth_routes(app) -> None:
         # 设置/重置凭据（POST，需已登录）
         if not session.get("authenticated"):
             return jsonify({"ok": False, "error": "未登录，请先登录。"}), 401
-        data = request.get_json(silent=True) or {}
+        data = _json_body()
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         confirm = data.get("confirm_password") or ""

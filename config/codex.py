@@ -45,7 +45,7 @@ CODEX_REQUEST_TIMEOUT: int = 30
 # ============================================================
 
 # 注册成功后是否自动跑 Codex 授权（True=自动，False=跳过）
-ENABLE_CODEX_AUTO: bool = True
+ENABLE_CODEX_AUTO: bool = False
 
 # Codex OAuth 授权驱动：
 #   "protocol" = 原有 curl_cffi 协议授权

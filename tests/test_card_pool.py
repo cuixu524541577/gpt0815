@@ -293,3 +293,42 @@ def test_retry_failed_job(pool):
     pe.submit_payment_job(job2["id"])
     final2 = wait_job(job2["id"])
     assert final2["status"] == cp.JOB_SUCCEEDED
+
+
+# ------------------------------------------------------------
+# 数据损坏自愈（健壮性回归）
+# ------------------------------------------------------------
+def test_corrupted_data_self_heal(pool):
+    """数据文件结构损坏（合法 JSON 但元素非 dict）时不崩溃，自动过滤。"""
+    # 截断的 JSON → 空列表
+    (pool / "cards.json").write_text('{"cards": [{"id": 1, "card_number": "4242', encoding="utf-8")
+    assert cp.list_cards() == []
+    # 元素混合（dict + int + str + null）→ 只保留 dict
+    (pool / "cards.json").write_text('[{"id": 1}, 42, "x", null, {"id": 2}]', encoding="utf-8")
+    rows = cp.list_cards()
+    assert [r["id"] for r in rows] == [1, 2]
+    # jobs 同样自愈
+    (pool / "jobs.json").write_text('[{"status": "queued"}, "bad", 7]', encoding="utf-8")
+    jobs = cp.list_jobs()
+    assert len(jobs) == 1 and jobs[0]["status"] == "queued"
+    # 自愈后可正常写入（坏数据中的 dict 保留，新卡正常追加）
+    cp.add_card(card_number=GOOD_CARD, expires="12/27", cvv="123")
+    rows = cp.list_cards()
+    assert len(rows) == 3
+    assert any(r.get("card_number") == GOOD_CARD for r in rows)
+
+
+def test_corrupted_config_falls_back(pool, monkeypatch):
+    """config/card_pool.py 语法损坏时返回默认值而非崩溃。"""
+    from pathlib import Path as _P
+    cfg_path = _P(__file__).resolve().parent.parent / "config" / "card_pool.py"
+    backup = cfg_path.read_text(encoding="utf-8")
+    try:
+        cfg_path.write_text("ENABLE_CARD_POOL = True\nthis is not python (((\n", encoding="utf-8")
+        cp._CFG_CACHE.clear()
+        st = cp.settings()
+        assert isinstance(st["enabled"], bool)
+        assert isinstance(st["max_concurrent"], int)
+    finally:
+        cfg_path.write_text(backup, encoding="utf-8")
+        cp._CFG_CACHE.clear()

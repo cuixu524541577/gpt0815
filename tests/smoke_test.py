@@ -48,6 +48,13 @@ check("错误密码 401", c.post("/api/auth/password/login",
       json={"username": "smoke", "password": "bad"}).status_code == 401)
 check("正确登录 200", c.post("/api/auth/password/login",
       json={"username": "smoke", "password": "SmokeTest@123456"}).status_code == 200)
+# 畸形 JSON body（字符串/数字/数组）不得 500（健壮性回归）
+check("字符串 body 不 500", c.post("/api/auth/password/login",
+      data='"hello"', content_type="application/json").status_code < 500)
+check("数组 body 不 500", c.post("/api/auth/password/login",
+      data='["a"]', content_type="application/json").status_code < 500)
+check("null body 不 500", c.post("/api/auth/password/login",
+      data='null', content_type="application/json").status_code < 500)
 
 # 2. 静态资源
 for a in ["/static/js/api.js", "/static/js/pages/register.js", "/static/css/app.css",
@@ -142,13 +149,20 @@ def _cp_wait(job_id, timeout=15):
     return None
 
 try:
+    # 强制干净起点：重置卡池配置为禁用 + 清空测试数据目录，
+    # 防止上次运行残留（配置或数据污染导致断言失真）
+    from webui import config_editor as _ce
+    _ce.update_config({"ENABLE_CARD_POOL": False, "CARD_POOL_DRIVER": "mock", "CARD_POOL_AUTO_PAY": False})
+    if _CP_DIR.exists():
+        _shutil.rmtree(_CP_DIR)
+    _CP_PAID_KEY.unlink(missing_ok=True)
+
     # 6.0 未启用时：只读可查，写入拒绝
     check("卡池未启用写拒绝 501", c.post("/api/card-pool/cards",
           json={"card_number": "4242424242424242", "expires": "12/27", "cvv": "123"}).status_code == 501)
     check("卡池未启用列表可读", c.get("/api/card-pool/cards").status_code == 200)
 
     # 启用卡池（mock 驱动）
-    from webui import config_editor as _ce
     _ce.update_config({"ENABLE_CARD_POOL": True, "CARD_POOL_DRIVER": "mock"})
     st = c.get("/api/card-pool/status").get_json()
     check("卡池启用状态", st.get("enabled") is True and st.get("settings", {}).get("driver") == "mock")

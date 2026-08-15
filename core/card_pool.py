@@ -163,7 +163,9 @@ def _write(path: Path, data) -> None:
 
 def _load_cards() -> list[dict]:
     rows = _read(_CARDS_FILE, None)
-    return rows if isinstance(rows, list) else []
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
 
 
 def _save_cards(rows: list[dict]) -> None:
@@ -172,7 +174,9 @@ def _save_cards(rows: list[dict]) -> None:
 
 def _load_paypal() -> list[dict]:
     rows = _read(_PAYPAL_FILE, None)
-    return rows if isinstance(rows, list) else []
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
 
 
 def _save_paypal(rows: list[dict]) -> None:
@@ -181,7 +185,9 @@ def _save_paypal(rows: list[dict]) -> None:
 
 def _load_jobs() -> list[dict]:
     rows = _read(_JOBS_FILE, None)
-    return rows if isinstance(rows, list) else []
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
 
 
 def _save_jobs(rows: list[dict]) -> None:

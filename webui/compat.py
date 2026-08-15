@@ -44,9 +44,21 @@ def _load(name: str, default=None):
     if not p.exists():
         return default
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return default
+    # 结构自愈：程序写入的 list 元素类型一致（upi_tasks 全 dict、
+    # notified_jobs 全 str）。以首元素类型为准过滤，损坏混入的异物直接丢弃。
+    if isinstance(data, list):
+        if not data:
+            return data
+        first = data[0]
+        if isinstance(first, dict):
+            return [d for d in data if isinstance(d, dict)]
+        if isinstance(first, str):
+            return [d for d in data if isinstance(d, str)]
+        return [d for d in data if isinstance(d, (dict, str))]
+    return data
 
 
 def _save(name: str, data) -> None:
@@ -57,7 +69,9 @@ def _save(name: str, data) -> None:
 
 
 def _json_body():
-    return request.get_json(silent=True) or {}
+    """解析 JSON body；非 dict（字符串/数字/数组/null）一律视为空，避免下游 .get() 崩溃。"""
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
 
 
 _IMPORT_TEXT_MAX = 5 * 1024 * 1024      # 5MB

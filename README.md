@@ -15,7 +15,7 @@ sentinel 反机器人），本项目在基座上补齐了**认证体系、卡池
 - **卡池支付**：虚拟信用卡池 + PayPal 账号池，BIN 白名单优先 + 最少使用挑选、
   租约锁防并发抢卡、拒付自动报废；提链成功后自动支付（`core/card_pool.py`）
 - **支付链接提取（UPI）**：提链任务 + 扫码商管理（与卡池并行，互不影响）
-- **接码平台**：Hero / SMS-Activate 等多平台接码，价格档策略
+- **接码平台**：GrizzlySMS / HeroSMS / SMSBower（sms-activate 兼容协议）自动切换 API 地址，价格档策略
 - **通知**：注册任务 / 自动化任务 / 支付结果 Telegram 通知
 - **配置**：WebUI 热更新 config/*.py（白名单 + AST 安全转义 + 原子写）
 - **认证（自建）**：口令登录、PBKDF2 哈希、签名 session、登录限速、审计日志

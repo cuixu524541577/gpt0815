@@ -91,15 +91,20 @@ CPA_SAVE_CALLBACK_RECEIPT: bool = True
 # ============================================================
 # 接码平台（手机短信验证用）
 # SMS_PROVIDER:
-#   "grizzly" = GrizzlySMS，接口说明见 https://api.grizzlysms.com
-#   "l"       = 本地 L 取号服务，接口说明见 L_API.md
-#   "h"       = 本地 H 取号服务，接口说明见 H_API.md
+#   "grizzly"  = GrizzlySMS，接口说明见 https://api.grizzlysms.com
+#   "hero"     = HeroSMS
+#   "smsbower" = SMSBower，接口说明见 https://smsbower.app/cn/api
+#   "l"        = 本地 L 取号服务，接口说明见 L_API.md
+#   "h"        = 本地 H 取号服务，接口说明见 H_API.md
+# grizzly/hero/smsbower 均为 sms-activate 兼容协议（handler_api.php + api_key），
+# SMS_PROVIDER 切换时 API 地址自动跟随；如需自定义地址，显式配置 SMS_API_BASE。
 # ============================================================
 
 SMS_PROVIDER: str = "grizzly"
 
-# 接码 API 基址（GET handler）
-SMS_API_BASE: str = "https://hero-sms.com/stubs/handler_api.php"
+# 接码 API 基址（GET handler）。留空或仍为其他平台默认值时，
+# 按 SMS_PROVIDER 自动切换默认地址（grizzly/hero/smsbower）。
+SMS_API_BASE: str = ""
 
 # 接码 API 密钥（在 GrizzlySMS 后台 → 设置 获取）
 # 留空时 Codex 授权的手机验证步会失败；如不需要 Codex 自动授权，把 ENABLE_CODEX_AUTO=False。

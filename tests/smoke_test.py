@@ -61,6 +61,15 @@ for a in ["/static/js/api.js", "/static/js/pages/register.js", "/static/css/app.
           "/static/i18n/en.json", "/static/i18n/zh_cn.json"]:
     check(f"静态 {a}", c.get(a).status_code == 200)
 
+# 2.5 接码平台列表（默认平台注册齐全）
+_sms_providers = c.get("/api/sms/providers").get_json().get("items", [])
+_sms_pids = [p.get("provider") for p in _sms_providers]
+check("接码平台含 GrizzlySMS", "grizzly" in _sms_pids)
+check("接码平台含 HeroSMS", "hero" in _sms_pids)
+check("接码平台含 SMSBower", "smsbower" in _sms_pids)
+_smsbower_row = next((p for p in _sms_providers if p.get("provider") == "smsbower"), {})
+check("SMSBower 地址正确", "smsbower.page" in str(_smsbower_row.get("base_url") or ""))
+
 # 3. 核心端点
 for ep in ["/api/summary", "/api/accounts?page=1&page_size=20", "/api/outlook?page=1&page_size=20",
            "/api/codex", "/api/jobs/defaults", "/api/jobs/logs",

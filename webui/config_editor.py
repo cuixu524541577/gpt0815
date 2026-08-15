@@ -212,15 +212,15 @@ EDITABLE_FIELDS = [
     },
     {
         "key": "SMS_API_KEY", "file": "codex.py", "type": "str", "group": "接码平台",
-        "label": "API 密钥", "help": "接码平台 API key（GrizzlySMS/HeroSMS）", "secret": True,
+        "label": "API 密钥", "help": "接码平台 API key（GrizzlySMS/HeroSMS/SMSBower）", "secret": True,
     },
     {
         "key": "SMS_PROVIDER", "file": "codex.py", "type": "str", "group": "接码平台",
-        "label": "接码通道", "help": "grizzly=GrizzlySMS/HeroSMS 兼容协议；l=本地 L 服务；h=本地 H 服务",
+        "label": "接码通道", "help": "grizzly=GrizzlySMS；hero=HeroSMS；smsbower=SMSBower（均 sms-activate 兼容协议）；l=本地 L 服务；h=本地 H 服务",
     },
     {
         "key": "SMS_API_BASE", "file": "codex.py", "type": "str", "group": "接码平台",
-        "label": "接码 API 地址", "help": "grizzly=https://api.grizzlysms.com/stubs/handler_api.php；hero=https://hero-sms.com/stubs/handler_api.php",
+        "label": "接码 API 地址", "help": "留空自动按接码通道选择：grizzly=https://api.grizzlysms.com/stubs/handler_api.php；hero=https://hero-sms.com/stubs/handler_api.php；smsbower=https://smsbower.page/stubs/handler_api.php",
     },
     {
         "key": "SMS_POLL_INTERVAL", "file": "codex.py", "type": "int", "group": "接码平台",

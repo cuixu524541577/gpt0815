@@ -8,7 +8,8 @@
     3. complete() / cancel()  setStatus 标记完成(6) / 取消(8)
 
 当前支持：
-    - GrizzlySMS：GET 文本接口，文档 https://api.grizzlysms.com
+    - GrizzlySMS / HeroSMS / SMSBower：sms-activate 兼容的 GET 文本接口
+      （handler_api.php + api_key + action），按 SMS_PROVIDER 自动选默认 API 地址
     - L：本地 JSON 管理接口，文档 L_API.md
     - H：本地 JSON 管理接口，文档 H_API.md
 
@@ -66,17 +67,49 @@ def _provider() -> str:
     return str(getattr(_cfg, "SMS_PROVIDER", "grizzly") or "grizzly").strip().lower()
 
 
+# sms-activate 兼容平台的默认 API 地址（SMS_PROVIDER 自动选择；
+# SMS_API_BASE 显式配置时始终优先）
+_DEFAULT_BASES = {
+    "grizzly": "https://api.grizzlysms.com/stubs/handler_api.php",
+    "hero": "https://hero-sms.com/stubs/handler_api.php",
+    "smsbower": "https://smsbower.page/stubs/handler_api.php",
+}
+
+_PROVIDER_NAMES = {
+    "grizzly": "GrizzlySMS",
+    "hero": "HeroSMS",
+    "smsbower": "SMSBower",
+    "l": "L 本地服务",
+    "h": "H 本地服务",
+}
+
+
+def _api_base() -> str:
+    """按 SMS_PROVIDER 解析 API 基址：显式配置的 SMS_API_BASE 优先，
+    未配置或仍是其他平台默认值时，自动切到当前平台的默认地址。"""
+    base = str(getattr(_cfg, "SMS_API_BASE", "") or "").strip()
+    provider = _provider()
+    if provider in _DEFAULT_BASES:
+        if not base or base in _DEFAULT_BASES.values():
+            return _DEFAULT_BASES[provider]
+    return base or _DEFAULT_BASES.get(provider, "")
+
+
+def _provider_name() -> str:
+    return _PROVIDER_NAMES.get(_provider(), _provider())
+
+
 def _request_grizzly(http: CurlSession, params: dict) -> str:
     """
-    发一个 GrizzlySMS API 请求，返回去空白的响应文本。
-    统一识别公共错误码并抛对应异常。
+    发一个 sms-activate 兼容平台 API 请求（GrizzlySMS/HeroSMS/SMSBower），
+    返回去空白的响应文本。统一识别公共错误码并抛对应异常。
     """
     base_params = {"api_key": _cfg.SMS_API_KEY}
     base_params.update(params)
-    resp = http.get(_cfg.SMS_API_BASE, params=base_params)
+    resp = http.get(_api_base(), params=base_params)
     if resp.status_code != 200:
         raise SmsProviderError(
-            f"GrizzlySMS HTTP {resp.status_code}: {(resp.text or '')[:200]}"
+            f"{_provider_name()} HTTP {resp.status_code}: {(resp.text or '')[:200]}"
         )
     text = (resp.text or "").strip()
 

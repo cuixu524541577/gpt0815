@@ -1751,6 +1751,11 @@ def register_compat_routes(app) -> None:
             "base_url": "https://hero-sms.com/stubs/handler_api.php",
             "currency": "USD",
         },
+        "smsbower": {
+            "display_name": "SmsBower",
+            "base_url": "https://smsbower.page/stubs/handler_api.php",
+            "currency": "USD",
+        },
     }
 
     def _sms_providers_rows() -> list:

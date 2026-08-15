@@ -85,14 +85,20 @@ _PROVIDER_NAMES = {
 
 
 def _api_base() -> str:
-    """按 SMS_PROVIDER 解析 API 基址：显式配置的 SMS_API_BASE 优先，
-    未配置或仍是其他平台默认值时，自动切到当前平台的默认地址。"""
+    """按 SMS_PROVIDER 解析 API 基址：显式配置的 SMS_API_BASE 优先。
+
+    只有两种情况回落到当前平台的默认地址：
+      - SMS_API_BASE 为空；
+      - SMS_API_BASE 恰好等于当前平台的默认地址（语义相同）。
+    若 SMS_API_BASE 是另一个平台的地址（平台子页同步写入），必须原样保留，
+    否则会把 hero 的 key 错发到 grizzly 的服务器上（NO_KEY）。
+    """
     base = str(getattr(_cfg, "SMS_API_BASE", "") or "").strip()
     provider = _provider()
-    if provider in _DEFAULT_BASES:
-        if not base or base in _DEFAULT_BASES.values():
-            return _DEFAULT_BASES[provider]
-    return base or _DEFAULT_BASES.get(provider, "")
+    default = _DEFAULT_BASES.get(provider, "")
+    if not base or base == default:
+        return default
+    return base
 
 
 def _provider_name() -> str:

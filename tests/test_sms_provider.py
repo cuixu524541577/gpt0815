@@ -52,6 +52,7 @@ def reset_config(monkeypatch):
 # API 地址自动选择
 # ------------------------------------------------------------
 def test_api_base_auto_select():
+    cfg.SMS_API_BASE = ""
     cfg.SMS_PROVIDER = "grizzly"
     assert sp._api_base() == "https://api.grizzlysms.com/stubs/handler_api.php"
     cfg.SMS_PROVIDER = "hero"
@@ -61,10 +62,10 @@ def test_api_base_auto_select():
     # 显式配置的 SMS_API_BASE 始终优先
     cfg.SMS_API_BASE = "https://my-custom.example/handler_api.php"
     assert sp._api_base() == "https://my-custom.example/handler_api.php"
-    # 配置里残留其他平台的默认地址时，也自动切回当前平台
+    # 平台子页同步写入的其他平台地址必须保留（避免 hero key 错发到 grizzly）
     cfg.SMS_PROVIDER = "smsbower"
     cfg.SMS_API_BASE = "https://hero-sms.com/stubs/handler_api.php"
-    assert sp._api_base() == "https://smsbower.page/stubs/handler_api.php"
+    assert sp._api_base() == "https://hero-sms.com/stubs/handler_api.php"
 
 
 def test_provider_name_map():
@@ -181,3 +182,31 @@ def test_set_status_shape(monkeypatch):
 # ------------------------------------------------------------
 def monkeypatch_http(sess):
     sp._http = lambda: sess
+
+
+# ------------------------------------------------------------
+# _api_base：平台切换时地址不能错配
+# ------------------------------------------------------------
+def test_api_base_empty_uses_provider_default(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_PROVIDER", "grizzly")
+    monkeypatch.setattr(cfg, "SMS_API_BASE", "")
+    assert sp._api_base() == sp._DEFAULT_BASES["grizzly"]
+
+
+def test_api_base_other_platform_url_is_kept(monkeypatch):
+    """平台子页同步写入 hero 地址 + 通道 grizzly 时，地址必须保留，不能替换成 grizzly 默认。"""
+    monkeypatch.setattr(cfg, "SMS_PROVIDER", "grizzly")
+    monkeypatch.setattr(cfg, "SMS_API_BASE", sp._DEFAULT_BASES["hero"])
+    assert sp._api_base() == sp._DEFAULT_BASES["hero"]
+
+
+def test_api_base_matching_default_is_default(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_PROVIDER", "hero")
+    monkeypatch.setattr(cfg, "SMS_API_BASE", sp._DEFAULT_BASES["hero"])
+    assert sp._api_base() == sp._DEFAULT_BASES["hero"]
+
+
+def test_api_base_custom_url_kept(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_PROVIDER", "grizzly")
+    monkeypatch.setattr(cfg, "SMS_API_BASE", "https://my.custom.handler/api.php")
+    assert sp._api_base() == "https://my.custom.handler/api.php"

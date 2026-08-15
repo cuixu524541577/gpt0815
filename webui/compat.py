@@ -2151,7 +2151,7 @@ def register_compat_routes(app) -> None:
                 from webui.config_editor import update_config as _upd_cfg
                 sync = {
                     "SMS_API_KEY": row["api_key"],
-                    "SMS_PROVIDER": "grizzly",  # sms-activate 兼容协议复用
+                    "SMS_PROVIDER": str(row.get("provider") or "grizzly"),
                     "SMS_API_BASE": row.get("base_url") or "",
                 }
                 _upd_cfg(sync)

@@ -722,6 +722,11 @@ def _response_text(resp) -> str:
 
 def _phone_failure_reason(text: str, status_code: int | None = None) -> str:
     low = str(text or '').lower()
+    if any(k in low for k in (
+        'invalid authorization step', 'invalid_auth_step', 'authorization step',
+    )):
+        # 授权流程不处于手机验证步骤：该账号的本次授权不需要手机验证
+        return 'auth_step_invalid'
     if 'whatsapp' in low or 'whats app' in low:
         return 'whatsapp_channel'
     if any(k in low for k in (
@@ -885,6 +890,15 @@ def _do_phone_verification(session: BrowserSession) -> None:
                 )
                 send_text = _response_text(send_resp)
                 send_reason = _phone_failure_reason(send_text, send_resp.status_code)
+                if send_reason == 'auth_step_invalid':
+                    # 服务端明确表示授权不在手机验证步骤：该账号本次授权不需要手机。
+                    # 取消当前号（不浪费短信费），跳过手机步骤继续后续授权。
+                    logger.info(
+                        f"[Codex] add-phone/send 返回 invalid_auth_step："
+                        f"该账号本次授权无需手机验证，取消号码并跳过手机步骤"
+                    )
+                    sms_provider.cancel(activation_id, http)
+                    return
                 if send_resp.status_code not in (200, 204) or send_reason:
                     # 号码无效 / 无法发送 / WhatsApp 通道 / 限流等 → 释放当前号并换号。
                     logger.warning(

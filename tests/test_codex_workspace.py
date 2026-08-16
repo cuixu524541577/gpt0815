@@ -103,3 +103,39 @@ def test_fresh_account_without_auth_url_raises(monkeypatch):
     monkeypatch.setattr(co, "_get_workspace_id", lambda s: None)
     with pytest.raises(RuntimeError, match="没有可重放的授权地址"):
         co._select_workspace_and_get_callback(_FakeSession([]), "s1", auth_url=None)
+
+
+def test_phone_failure_reason_auth_step_invalid():
+    text = "Invalid authorization step. invalid_request_error invalid_auth_step https://auth.openai.com/log-in"
+    assert co._phone_failure_reason(text, 400) == "auth_step_invalid"
+    assert co._phone_failure_reason("invalid_auth_step", 400) == "auth_step_invalid"
+    assert co._phone_failure_reason("phone number is not valid", 400) == "invalid_phone"
+    assert co._phone_failure_reason("some other error", 400) == "send_rejected"
+
+
+def test_phone_verification_skips_on_auth_step_invalid(monkeypatch):
+    """授权不在手机验证步骤时：取消号码、跳过手机步骤，不烧号重试。"""
+    import core.sms_provider as sms_provider
+
+    class FakeResp:
+        status_code = 400
+        text = "Invalid authorization step. invalid_request_error invalid_auth_step https://auth.openai.com/log-in"
+
+    class FakeHttp:
+        def close(self):
+            pass
+
+    acquired = []
+    canceled = []
+
+    monkeypatch.setattr(sms_provider, "_http", lambda: FakeHttp())
+    monkeypatch.setattr(
+        sms_provider, "acquire_number",
+        lambda http: acquired.append(1) or ("a1", "16195550123"),
+    )
+    monkeypatch.setattr(sms_provider, "cancel", lambda aid, http: canceled.append(aid))
+    monkeypatch.setattr(co, "_post_json", lambda session, url, payload, referer, **kw: FakeResp())
+
+    co._do_phone_verification(object())
+    assert acquired == [1]
+    assert canceled == ["a1"]

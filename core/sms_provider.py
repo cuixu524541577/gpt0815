@@ -434,26 +434,60 @@ def acquire_number(
             )
             return activation_id, phone
 
-        params = {
-            "action": "getNumber",
-            "service": service or _cfg.SMS_SERVICE,
-            "country": country or _cfg.SMS_COUNTRY,
-        }
-        if _cfg.SMS_MAX_PRICE:
-            params["maxPrice"] = _cfg.SMS_MAX_PRICE
+        # 国家优先级：SMS_COUNTRY_PRIORITY 逗号分隔，按序取号；
+        # 无号/地区受限自动换下一个，最后兜底 SMS_COUNTRY。
+        priority_raw = str(getattr(_cfg, "SMS_COUNTRY_PRIORITY", "") or "")
+        ordered_countries: list[str] = []
+        seen: set[str] = set()
+        for part in priority_raw.replace("，", ",").split(","):
+            c = str(part).strip()
+            if c and c not in seen:
+                seen.add(c)
+                ordered_countries.append(c)
+        base_country = str(country or _cfg.SMS_COUNTRY or "").strip()
+        if base_country and base_country not in seen:
+            ordered_countries.append(base_country)
+        if not ordered_countries:
+            ordered_countries = [""]
 
-        text = _request_grizzly(http, params)
-        # 成功格式：ACCESS_NUMBER:激活ID:号码
-        if not text.startswith("ACCESS_NUMBER:"):
-            raise SmsProviderError(f"getNumber 非预期响应：{text[:200]}")
-        parts = text.split(":")
-        if len(parts) < 3:
-            raise SmsProviderError(f"getNumber 响应格式异常：{text[:200]}")
-        activation_id = parts[1].strip()
-        phone = parts[2].strip()
-        _ACQUIRED_AT[activation_id] = time.time()
-        logger.info(f"[SMS] 取号成功：activation_id={activation_id}, phone=+{phone}")
-        return activation_id, phone
+        last_unavailable: Exception | None = None
+        for c in ordered_countries:
+            params = {
+                "action": "getNumber",
+                "service": service or _cfg.SMS_SERVICE,
+                "country": c,
+            }
+            if _cfg.SMS_MAX_PRICE:
+                params["maxPrice"] = _cfg.SMS_MAX_PRICE
+
+            try:
+                text = _request_grizzly(http, params)
+            except SmsNoNumbersError as exc:
+                last_unavailable = exc
+                logger.info("[SMS] 国家 %s 无号，尝试下一个优先级国家", c or "默认")
+                continue
+            except SmsProviderError as exc:
+                if "SERVICE_UNAVAILABLE_REGION" in str(exc):
+                    last_unavailable = exc
+                    logger.info("[SMS] 国家 %s 地区受限，尝试下一个优先级国家", c or "默认")
+                    continue
+                raise
+
+            # 成功格式：ACCESS_NUMBER:激活ID:号码
+            if not text.startswith("ACCESS_NUMBER:"):
+                raise SmsProviderError(f"getNumber 非预期响应：{text[:200]}")
+            parts = text.split(":")
+            if len(parts) < 3:
+                raise SmsProviderError(f"getNumber 响应格式异常：{text[:200]}")
+            activation_id = parts[1].strip()
+            phone = parts[2].strip()
+            _ACQUIRED_AT[activation_id] = time.time()
+            logger.info(
+                f"[SMS] 取号成功：activation_id={activation_id}, phone=+{phone}, country={c or '默认'}"
+            )
+            return activation_id, phone
+
+        raise last_unavailable or SmsNoNumbersError("所有优先级国家均无可用号码")
     finally:
         if own_http:
             http.close()

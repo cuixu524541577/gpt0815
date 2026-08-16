@@ -155,7 +155,7 @@
       id: 'sms',
       title: '接码配置',
       desc: '多平台接码、价格档策略、等待时间和重试次数。',
-      keys: ['SMS_SERVICE', 'SMS_COUNTRY', 'SMS_API_KEY', 'SMS_API_BASE',
+      keys: ['SMS_SERVICE', 'SMS_COUNTRY', 'SMS_COUNTRY_PRIORITY', 'SMS_API_KEY', 'SMS_API_BASE',
              'SMS_MAX_RETRIES', 'SMS_CODE_WAIT', 'SMS_POLL_INTERVAL', 'SMS_CANCEL_ON_TIMEOUT', 'SMS_BLACKLIST_ON_BAD_CODE'],
     },
     {

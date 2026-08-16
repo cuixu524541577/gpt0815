@@ -303,6 +303,10 @@ EDITABLE_FIELDS = [
         "label": "国家代码", "help": "GrizzlySMS 国家数字代码，常用：美国=187 / 葡萄牙=117 / 智利=151；hero/smsbower 以各自平台为准",
     },
     {
+        "key": "SMS_COUNTRY_PRIORITY", "file": "codex.py", "type": "str", "group": "接码平台",
+        "label": "国家优先级", "help": "逗号分隔，按序取号（如 187,46,57）；无号/受限自动换下一个；留空只用国家代码。编号以价格查询页显示为准",
+    },
+    {
         "key": "SMS_SERVICE", "file": "codex.py", "type": "str", "group": "接码平台",
         "label": "服务代码", "help": "GrizzlySMS 服务代码：OpenAI=dr。一般不用改",
     },

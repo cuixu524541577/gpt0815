@@ -55,8 +55,9 @@ def test_search_state_error_retries_next_cycle(monkeypatch):
     monkeypatch.setattr(qc, "_connect_imap", fake_connect)
     monkeypatch.setattr(qc, "_search_messages", fake_search)
 
+    # after_ts 传 1（真值）避免被函数内部替换成 time.time()，测试不依赖真实时钟
     otp = qc.fetch_latest_otp(
-        "a@524541577.xyz", after_ts=0, max_wait=6, poll_interval=1, settle_seconds=0,
+        "a@524541577.xyz", after_ts=1, max_wait=6, poll_interval=1, settle_seconds=0,
     )
     assert otp == "123456"
     assert rounds["n"] >= 2

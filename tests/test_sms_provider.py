@@ -210,3 +210,76 @@ def test_api_base_custom_url_kept(monkeypatch):
     monkeypatch.setattr(cfg, "SMS_PROVIDER", "grizzly")
     monkeypatch.setattr(cfg, "SMS_API_BASE", "https://my.custom.handler/api.php")
     assert sp._api_base() == "https://my.custom.handler/api.php"
+
+
+# ------------------------------------------------------------
+# 国家优先级取号
+# ------------------------------------------------------------
+def test_country_priority_falls_through_unavailable(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_COUNTRY_PRIORITY", "187, 46,57")
+    monkeypatch.setattr(cfg, "SMS_COUNTRY", "10")
+    monkeypatch.setattr(cfg, "SMS_SERVICE", "dr")
+    monkeypatch.setattr(cfg, "SMS_MAX_PRICE", "")
+    calls = []
+
+    def fake_request(http, params):
+        calls.append(params["country"])
+        if params["country"] == "187":
+            raise sp.SmsNoNumbersError("NO_NUMBERS")
+        if params["country"] == "46":
+            raise sp.SmsProviderError("接码平台地区受限（SERVICE_UNAVAILABLE_REGION）")
+        return "ACCESS_NUMBER:777:16195550123"
+
+    monkeypatch.setattr(sp, "_request_grizzly", fake_request)
+    aid, phone = sp.acquire_number(http=object())
+    assert aid == "777"
+    assert phone == "16195550123"
+    assert calls == ["187", "46", "57"]
+
+
+def test_country_priority_all_unavailable_raises(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_COUNTRY_PRIORITY", "187,57")
+    monkeypatch.setattr(cfg, "SMS_COUNTRY", "187")
+    monkeypatch.setattr(cfg, "SMS_SERVICE", "dr")
+    monkeypatch.setattr(cfg, "SMS_MAX_PRICE", "")
+
+    def fake_request(http, params):
+        raise sp.SmsNoNumbersError("NO_NUMBERS")
+
+    monkeypatch.setattr(sp, "_request_grizzly", fake_request)
+    with pytest.raises(sp.SmsNoNumbersError):
+        sp.acquire_number(http=object())
+
+
+def test_no_priority_uses_single_country(monkeypatch):
+    monkeypatch.setattr(cfg, "SMS_COUNTRY_PRIORITY", "")
+    monkeypatch.setattr(cfg, "SMS_COUNTRY", "117")
+    monkeypatch.setattr(cfg, "SMS_SERVICE", "dr")
+    monkeypatch.setattr(cfg, "SMS_MAX_PRICE", "")
+    calls = []
+
+    def fake_request(http, params):
+        calls.append(params["country"])
+        return "ACCESS_NUMBER:1:123456"
+
+    monkeypatch.setattr(sp, "_request_grizzly", fake_request)
+    sp.acquire_number(http=object())
+    assert calls == ["117"]
+
+
+def test_priority_failure_passes_non_region_errors(monkeypatch):
+    """非「无号/受限」类错误（如 key 无效）不换国家，直接抛出。"""
+    monkeypatch.setattr(cfg, "SMS_COUNTRY_PRIORITY", "187,57")
+    monkeypatch.setattr(cfg, "SMS_COUNTRY", "187")
+    monkeypatch.setattr(cfg, "SMS_SERVICE", "dr")
+    monkeypatch.setattr(cfg, "SMS_MAX_PRICE", "")
+    calls = []
+
+    def fake_request(http, params):
+        calls.append(params["country"])
+        raise sp.SmsProviderError("接码平台 API key 无效（BAD_KEY）")
+
+    monkeypatch.setattr(sp, "_request_grizzly", fake_request)
+    with pytest.raises(sp.SmsProviderError, match="BAD_KEY"):
+        sp.acquire_number(http=object())
+    assert calls == ["187"]
